@@ -1,4 +1,4 @@
-package com.yupi.yuaiagent.demo.invoke;// 建议dashscope SDK的版本 >= 2.12.0
+package com.yupi.aitravelplanner.demo.invoke;// 建议dashscope SDK的版本 >= 2.12.0
 import java.util.Arrays;
 import java.lang.System;
 import com.alibaba.dashscope.aigc.generation.Generation;
@@ -10,6 +10,7 @@ import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.InputRequiredException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.utils.JsonUtils;
+import com.yupi.aitravelplanner.demo.invoke.TestApiKey;
 
 /**
  * 阿里云灵积 AI SDK 调用

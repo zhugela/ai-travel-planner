@@ -1,4 +1,4 @@
-package com.yupi.yuaiagent.demo.invoke;
+package com.yupi.aitravelplanner.demo.invoke;
 
 /**
  * 仅用于测试获取 API Key
@@ -6,5 +6,5 @@ package com.yupi.yuaiagent.demo.invoke;
 public interface TestApiKey {
 
     // 修改为你的 API Key
-    String API_KEY = "修改为你的 API Key";
+    String API_KEY = "sk-fd72ad761b584036ad29872e454f4af0";
 }

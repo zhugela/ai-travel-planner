@@ -1,4 +1,4 @@
-package com.yupi.yuaiagent.demo.invoke;
+package com.yupi.aitravelplanner.demo.invoke;
 
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 /**
  * Spring AI 框架调用 AI 大模型（阿里）
  */
-// 取消注释后，项目启动时会执行
+//// 取消注释后，项目启动时会执行（作业已验证，默认注释避免每次启动都调模型）
 //@Component
 public class SpringAiAiInvoke implements CommandLineRunner {
 

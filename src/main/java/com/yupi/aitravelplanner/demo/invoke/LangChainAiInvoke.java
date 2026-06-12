@@ -1,5 +1,6 @@
-package com.yupi.yuaiagent.demo.invoke;
+package com.yupi.aitravelplanner.demo.invoke;
 
+import com.yupi.aitravelplanner.demo.invoke.TestApiKey;
 import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 

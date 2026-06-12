@@ -1,4 +1,4 @@
-package com.yupi.yuaiagent.demo.invoke;
+package com.yupi.aitravelplanner.demo.invoke;
 
 import jakarta.annotation.Resource;
 import org.springframework.ai.chat.messages.AssistantMessage;

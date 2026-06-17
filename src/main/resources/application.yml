@@ -1,33 +1,47 @@
-spring:
-  application:
-    name: yu-ai-agent
-  ai:
-    dashscope:
-      api-key: ${DASHSCOPE_API_KEY}
-    ollama:
-      base-url: http://localhost:11434
-      chat:
-        options:
-          model: gemma3:1b
+# ============================================================
+# AI 旅游规划助手 ai-travel-planner - 基础配置
+# Spring AI 1.0.0 正式版 + DashScope 通义千问
+# ============================================================
 
+# 服务端口与统一接口前缀
 server:
   port: 8123
   servlet:
     context-path: /api
 
+# 应用服务名（统一改为 ai-travel-planner）
+spring:
+  application:
+    name: ai-travel-planner
+
+  # Spring AI 通义千问 DashScope 配置
+  ai:
+    dashscope:
+      # 密钥从IDE/系统环境变量读取，禁止明文写死
+      api-key: ${DASHSCOPE_API_KEY}
+      # 对话大模型
+      chat:
+        options:
+          model: qwen-plus
+      # RAG向量化Embedding模型
+      embedding:
+        options:
+          model: text-embedding-v3
+
+# Knife4j 在线接口文档
 springdoc:
-  swagger-ui:
-    path: /swagger-ui.html
-    tags-sorter: alpha
-    operations-sorter: alpha
   api-docs:
     path: /v3/api-docs
-  group-configs:
-    - group: default
-      paths-to-match: /**
-      packages-to-scan: com.yupi.aitravelplanner
+  swagger-ui:
+    path: /swagger-ui.html
 
 knife4j:
-  enable: false
+  enable: true
   setting:
     language: zh_cn
+
+# 日志打印配置
+logging:
+  level:
+    com.yupi.aitravelplanner: debug
+    org.springframework.ai: debug

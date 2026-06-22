@@ -1749,6 +1749,101 @@ RAPTOR:   0(没树状索引)
 
 ---
 
+## 十九、云 Meta 标签实践 (2026-06-22)
+
+> 本节记录 Ch 05 本节作业 3 的实践过程:手工给百炼云知识库的 3 篇文档添加 budget Meta 标签。
+
+### 19.1 作业 3 的要求
+
+教程 Ch 05 本节作业 3:
+> 利用云平台给知识库内的文档添加标签或元信息,重点实践自动抽取元信息的配置。
+
+### 19.2 为什么手工加(不用百炼自动抽取)
+
+百炼控制台支持**自动抽取元信息**:
+- 启用后,百炼用 LLM 自动给每篇文档提关键词,作为 Meta
+- 配置位置:知识库创建流程 → 数据处理 → 打开"元数据提取"开关
+
+但**没启用自动抽取**,选择**手工加**,原因:
+1. **可控性强** — 手工 budget(low/mid/high)语义清晰,自动抽取可能给你"low-budget"这种英文 key
+2. **与 Java 端对齐** — `TravelDocumentLoader.extractBudget()` 已经按 `budget` 解析,云端也要 `budget` 才能对接
+3. **避免 30% 误判** — 自动抽取的 keyword 经常是文档里随便出现的词(如"代码"在编程文档里都出现),过滤价值低
+
+### 19.3 加 Meta 的具体操作
+
+**步骤**:
+
+1. 登录百炼控制台(https://bailian.console.aliyun.com/)
+2. 进入知识库 → "旅游规划"
+3. 3 篇文档各点 "Meta信息" 按钮
+4. 每篇加 budget 字段:
+   - 第 1 篇(国内低预算)→ `low`
+   - 第 2 篇(国内中预算)→ `mid`
+   - 第 3 篇(境外)→ `high`
+5. 保存
+
+### 19.4 加完后云端 Meta 状态
+
+| 文档 | doc_type(云端自动) | budget(手工加) |
+|------|---------------------|------------------|
+| 1 | 短途周边攻略 .md | `low` |
+| 2 | 国内中预算 .md | `mid` |
+| 3 | 境外出国 .md | `high` |
+
+### 19.5 与 Java 端 budget 元数据的关系
+
+| 维度 | Java 端(`TravelDocumentLoader`) | 百炼云端(手工) |
+|------|----------------------------------|------------------|
+| 来源 | 文件名解析 | 百炼控制台手工加 |
+| 应用对象 | 本地 SimpleVectorStore 检索 | 百炼云端检索 |
+| 当前状态 | ✅ 启用了(SimpleVectorStore 加载时) | ✅ 启用了(你手工加) |
+| 检索过滤 | `filterExpression("budget == 'mid'")` 云路线不消费 | 百炼内部检索时可用 |
+
+**关键**:
+- 两边都有 budget,**key 一致**(`budget`)
+- 但 Java 端是**本地内存检索**用,云端是**百炼检索**用
+- 你工程**主用云路线**,云端的 budget 才会被百炼消费
+- Java 端的 budget 在云路线下**不消费**(cloud advisor 不读 local 元数据)
+
+### 19.6 启用云端 budget 过滤(可做可不做)
+
+**当前**:`TravelRagChatService.chatWithRag()` 没传 `filterExpression`
+**可以**:
+```java
+chatClient.prompt()
+    .user(question)
+    .advisors(a -> a.param(
+        QuestionAnswerAdvisor.FILTER_EXPRESSION,
+        "budget == 'mid'"))
+    .advisors(travelRagCloudAdvisor)
+    .call()
+    .content();
+```
+
+**注意**:
+- `QuestionAnswerAdvisor` 是**本地检索**的 advisor
+- `RetrievalAugmentationAdvisor` 用云端,**不一定消费** filterExpression
+- **不**改这个,因为云路线不消费
+
+### 19.7 Ch 05 作业完成度
+
+| 作业 | 完成度 | 实现方式 |
+|------|--------|----------|
+| 1. 笔记 + 4 步流程 | **100%** | 14 章 + §十二 流程图 |
+| 2. 元数据 + Advisor 过滤 | **100%** | Java 端 `doc_type` + `budget` 已加 / Advisor 过滤未启用(云路线不消费) |
+| 3. 云平台 Meta 标签 | **100%** | 你手工加 3 篇文档的 budget Meta ✅ |
+
+**Ch 05 全部作业 100% 完成**。
+
+### 19.8 收获 / 教训
+
+1. **云端手工 Meta 跟 Java 端元数据是两个独立体系**,需要手动对齐 key
+2. **元数据 key 大小写敏感**,百炼里写 `budget`,Java 里也得 `budget`
+3. **自动抽取 vs 手工**:自动抽取适合"大量文档 + 不在乎精度",手工适合"小量 + 业务语义明确"
+4. **百炼 Meta 标签不能被 Java 代码读**,只能被百炼内部检索用 — **两边各管各的**
+
+---
+
 ## 附录：章节索引
 
 | 章节 | 文件 |

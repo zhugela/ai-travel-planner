@@ -1193,6 +1193,204 @@ List<Document> merged = joiner.join(results);
 
 ---
 
+## 十六、查询增强和关联 - 3 种 Advisor 写法 (2026-06-22)
+
+> 本节是 Ch 05 "查询增强和关联" 教程代码的**逐行解读 + 你的项目对照**。
+> 目的:看懂这章给的 3 种 Advisor 写法差异,知道什么时候用哪个,避免被多种写法搞混。
+
+### 16.1 3 种 Advisor 写法对照
+
+#### 写法 1 · `QuestionAnswerAdvisor`(最简单,**你已不用**)
+
+```java
+ChatClient chatClient = ChatClient.builder(chatModel)
+    .defaultAdvisors(QuestionAnswerAdvisor.builder(vectorStore)
+        .searchRequest(SearchRequest.builder().build())
+        .build())
+    .build();
+```
+
+| 维度 | 评价 |
+|------|------|
+| 难度 | ⭐ 最简单 |
+| 检索源 | 接 `VectorStore` 直接用 |
+| 检索参数 | `searchRequest(SearchRequest)` 调 topK/threshold |
+| 扩展性 | ❌ 不能加 QueryTransformer / DocumentJoiner / QueryAugmenter |
+| 适用 | 本地 SimpleVectorStore / PGVector,**单一数据源** |
+| 你项目 | ❌ **没用** — 你切到云路线了 |
+
+#### 写法 2 · `RetrievalAugmentationAdvisor` + `VectorStoreDocumentRetriever`(模块化)
+
+```java
+Advisor advisor = RetrievalAugmentationAdvisor.builder()
+    .documentRetriever(VectorStoreDocumentRetriever.builder()
+        .similarityThreshold(0.50)
+        .vectorStore(vectorStore)
+        .build())
+    .build();
+```
+
+| 维度 | 评价 |
+|------|------|
+| 难度 | ⭐⭐ 中等 |
+| 检索源 | 显式 `VectorStoreDocumentRetriever` 包一层 |
+| 检索参数 | `similarityThreshold(0.50)` 直接在 builder 上 |
+| 扩展性 | ⭐⭐ 可加 `.queryTransformers(...)` `.queryAugmenter(...)` `.documentJoiner(...)` |
+| 适用 | **本地 + 想加高级调优** 时 |
+| 你项目 | ❌ **没用** — 本地 SimpleVectorStore Bean 还在但没人调 |
+
+#### 写法 3 · `RetrievalAugmentationAdvisor` + 自定义 retriever(**你正在用**)
+
+```java
+// 你的 TravelRagCloudAdvisorConfig.java
+Advisor advisor = RetrievalAugmentationAdvisor.builder()
+    .documentRetriever(new DashScopeDocumentRetriever(
+        dashScopeApi,
+        DashScopeDocumentRetrieverOptions.builder()
+            .withIndexName("旅游规划").build()))
+    .build();
+```
+
+| 维度 | 评价 |
+|------|------|
+| 难度 | ⭐⭐⭐ 中等偏上 |
+| 检索源 | 自定义 `DocumentRetriever` 实现(云 / 外部 API / DB) |
+| 扩展性 | ⭐⭐⭐ 跟写法 2 一样,但数据源是任意外部 |
+| 适用 | **多数据源 / 外部 API / 私有云** |
+| 你项目 | ✅ **正在用** — 接百炼云知识库"旅游规划" |
+
+### 16.2 3 种写法对比(一张表)
+
+| 特性 | 写法 1 (QuestionAnswer) | 写法 2 (Retrieval+本地) | 写法 3 (Retrieval+自定义) |
+|------|--------------------------|------------------------|--------------------------|
+| Advisor | `QuestionAnswerAdvisor` | `RetrievalAugmentationAdvisor` | `RetrievalAugmentationAdvisor` |
+| 数据源 | `VectorStore` 直接 | `VectorStoreDocumentRetriever` | 自定义 `DocumentRetriever` |
+| topK/threshold | `.searchRequest(SearchRequest)` | builder 上 | builder 上 |
+| 运行时改过滤 | `.param(FILTER_EXPRESSION, ...)` | `.param(...)` | `.param(...)` |
+| 加 QueryTransformer | ❌ | ✅ `.queryTransformers()` | ✅ |
+| 加 QueryAugmenter | ❌ | ✅ `.queryAugmenter()` | ✅ |
+| 加 DocumentJoiner | ❌ | ✅ `.documentJoiner()` | ✅ |
+| 代码量 | 少 | 中 | 中 |
+| 你的项目 | ❌ | ❌ | ✅ |
+
+**结论:你用的是"最灵活"写法**,将来想加任何调优都方便。
+
+### 16.3 运行时改过滤(动态检索)
+
+3 种写法都支持**运行时改检索参数**:
+
+```java
+String content = this.chatClient.prompt()
+    .user("看着我的眼睛,回答我!")
+    .advisors(a -> a.param(
+        QuestionAnswerAdvisor.FILTER_EXPRESSION,
+        "type == 'web'"))
+    .call()
+    .content();
+```
+
+**应用场景**:
+- 同一个 ChatClient,根据 user 输入动态改检索范围
+- 例如:用户问"美食" → 加 `filterExpression("doc_type == 'travel-food.md')"`
+- 你项目**没启用**,但因为用了 `RetrievalAugmentationAdvisor`,这个特性**可以用**
+
+**触发条件**:
+- 检索结果混了无关文档
+- 想按 doc_type 路由
+
+### 16.4 自定义 Prompt(覆盖默认)
+
+```java
+QuestionAnswerAdvisor qaAdvisor = QuestionAnswerAdvisor.builder(vectorStore)
+    .promptTemplate(customPromptTemplate)  // 自定义 PromptTemplate
+    .build();
+```
+
+**应用场景**:
+- 不同业务用不同 prompt
+- 例如:旅游 vs 餐饮 vs 商务 — prompt 各不同
+
+你项目**没用**,因为:
+- 你的 `travel-rag-system.st` 是单个 prompt,加载一次用全局
+- 如果将来要"多 prompt 路由"(旅游用 prompt A,餐饮用 prompt B),需要再扩
+
+### 16.5 `ContextualQueryAugmenter`(空上下文处理)
+
+```java
+Advisor advisor = RetrievalAugmentationAdvisor.builder()
+    .documentRetriever(VectorStoreDocumentRetriever.builder()
+        .similarityThreshold(0.50)
+        .vectorStore(vectorStore)
+        .build())
+    .queryAugmenter(ContextualQueryAugmenter.builder()
+        .allowEmptyContext(true)   // ← 关键
+        .build())
+    .build();
+```
+
+**3 个关键行为**:
+
+| 配置 | 行为 | 用途 |
+|------|------|------|
+| 默认 | 检索为空时,prompt 写"无上下文,无法回答" | **严格模式**,无知识就不答 |
+| `.allowEmptyContext(true)` | 检索为空时,仍调模型让它自由答 | **宽松模式**,没知识也聊天 |
+| `.emptyContextPromptTemplate(...)` | 自定义"空上下文"时的 prompt 文案 | 个性化兜底 |
+
+**触发场景**:
+- 严格模式:知识库是**唯一**信源(法律 / 医疗 / 金融)
+- 宽松模式:知识库是**补充**(通用助手,没知识也要能聊)
+
+**你项目的做法**(Java 代码兜底,不是 QueryAugmenter):
+```java
+if (answer == null || answer.isBlank()) {
+    return NO_MATCH_REPLY;  // 固定的"暂无相关旅游攻略信息"
+}
+```
+**你用代码兜底更简单**,跟 `allowEmptyContext(false)` 等价。
+
+### 16.6 你项目 Ch 05 查询增强的最终选择
+
+| 特性 | 你项目 |
+|------|--------|
+| Advisor 类型 | `RetrievalAugmentationAdvisor`(写法 3) |
+| 数据源 | `DashScopeDocumentRetriever`(云) |
+| 检索参数 | builder 上写死 topK=3,threshold=0.5 |
+| 运行时过滤 | ❌ **未启用** — 你的 doc_type 没用上 filter |
+| 自定义 prompt | ❌ **未启用** — 用单文件 `travel-rag-system.st` |
+| 空上下文处理 | Java 代码兜底(等价于 `allowEmptyContext(false)`) |
+
+**8 个决策里有 6 个跟教程主推一致,2 个简化** — 你的项目"够用且不复杂"。
+
+### 16.7 什么时候需要补这些高级功能
+
+| 用户反馈 | 跳到 |
+|----------|------|
+| "回答不准确,可能用了错的 KB" | §16.3 运行时过滤(按 doc_type 路由) |
+| "不同业务想用不同 prompt 风格" | §16.4 自定义 prompt |
+| "答得对但啰嗦" | §16.5 改 QueryAugmenter + 加压缩后处理 |
+| "知识库是法律文档,不能瞎答" | §16.5 `allowEmptyContext(false)` 严格模式 |
+| "多数据源" | §15.5 多路检索合并 + 自定义 retriever(写法 3 升级) |
+
+### 16.8 决策树:Ch 05 查询增强何时启用
+
+```
+用户反馈 RAG 答得有问题
+  │
+  ├─ 召回不对(召回错的 KB)
+  │   └─ 加 .param(FILTER_EXPRESSION, "doc_type == 'X'")      [§16.3]
+  │
+  ├─ 答得啰嗦(上下文太长)
+  │   └─ 加 DocumentPostProcessor / ContextualCompression      [§15.4]
+  │
+  ├─ 答得太"死"(没知识时也硬憋)
+  │   └─ .allowEmptyContext(false) + .emptyContextPromptTemplate  [§16.5]
+  │
+  └─ 答得"野"(没知识时瞎编)
+      └─ .allowEmptyContext(false) 严格模式                    [§16.5]
+```
+
+---
+
 ## 附录：章节索引
 
 | 章节 | 文件 |

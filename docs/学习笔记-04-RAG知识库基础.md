@@ -726,6 +726,78 @@ Spring AI 把这一过程封装成 **Advisor**，与第 03 章的 Memory、Logge
 
 ---
 
+## 十二、实战落地记录(2026-06-17)
+
+### 12.1 落地了什么
+
+把课程案例的 RAG 全套,平移到本项目 com.yupi.aitravelplanner,全部由我手写:
+
+| 文件 | 行数 | 作用 |
+|------|------|------|
+| rag/TravelDocumentLoader.java | 104 | ETL:读 classpath:document/*.md → List<Document>,带 doc_type 元数据 |
+| config/TravelVectorStoreConfig.java | 69 | 启动时自动 Embedding → 写 SimpleVectorStore 内存 Map |
+| prompts/travel-rag-system.st | 14 | RAG 专用 system prompt(含「上下文无就不答」硬约束) |
+| service/TravelRagChatService.java | 176 | 检索 + 预检 + 兜底 + QuestionAnswerAdvisor + 分层日志 |
+| controller/TravelRagController.java | 86 | POST /travel/rag-chat HTTP 入口 |
+| model/dto/TravelRagRequest.java | 28 | 请求:question + conversationId |
+| model/dto/TravelRagResponse.java | 38 | 响应:answer + matched + conversationId |
+| test/.../TravelRagChatServiceTest.java | 61 | 2 个用例:命中 + 兜底 |
+| document/travel-short-trip.md | 42 | 短途周边游攻略(6 题) |
+| document/travel-domestic-long.md | 54 | 国内长线攻略(6 题) |
+| document/travel-overseas.md | 51 | 境外出国攻略(6 题) |
+
+### 12.2 关键参数(调出来的经验值)
+
+| 参数 | 值 | 理由 |
+|------|----|------|
+| TOP_K | 3 | 太多信息淹没,3 条最相关片段已够 |
+| SIMILARITY_THRESHOLD | 0.5 | 0.0~0.4 多半是噪声;0.5~1.0 才算命中 |
+| embedding.model | text-embedding-v3 | 1536 维,百炼主推 |
+| chat.model | qwen-plus | 中文旅游场景稳定 |
+| 切片规则 | --- 切分 | 一段一题,问答粒度正好 |
+| 兜底话术 | 暂无相关旅游攻略信息 | 不让模型胡编景点/价格 |
+
+### 12.3 真实日志(单元测试通过时)
+
+```
+INFO  TravelDocumentLoader : Loaded 18 documents from classpath:document/*.md
+INFO  TravelRagChatService : ========== RAG 请求开始 ==========
+INFO  TravelRagChatService : [1] 用户提问: 北京周边 2 天怎么玩?
+INFO  TravelRagChatService : [2] 检索到 3 条相关知识库片段:
+INFO  TravelRagChatService :     片段[1] doc_type=travel-short-trip.md | 内容预览: #### 北京周边 2 天怎么玩?...
+INFO  TravelRagChatService : [3] 模型回答: 推荐古北水镇(车程2小时,门票150元,夜景有名)、...
+INFO  TravelRagChatService : ========== RAG 请求结束(命中) ==========
+
+INFO  TravelRagChatService : [1] 用户提问: 元宇宙 7 天深度游攻略
+WARN  TravelRagChatService : [2] 知识库无匹配片段(阈值=0.5, TopK=3),触发兜底回复
+INFO  TravelRagChatService : ========== RAG 请求结束(兜底) ==========
+```
+
+### 12.4 关键经验(踩坑 → 教训)
+
+| 踩坑 | 原因 | 教训 |
+|------|------|------|
+| package com.yupi.yuaiagent... 编译失败 | 老工程残留路径未同步 | 启动前看 Error starting ApplicationContext 头一行 |
+| Unable to establish loopback connection | JDK 21.0.2 + Windows 上 PipeImpl 用 Unix domain socket 探活 | JDK 升 21.0.5+ 或改 26;别用 -Djava.net.preferIPv4Stack=true,没用 |
+| RestClient$Builder bean 找不到 | 之前为了绕回环问题 exclude 了 RestClientAutoConfiguration | 环境修好后必须删掉 exclude,否则下游 starter 全部报错 |
+| InvalidApiKey HTTP 401 | IDEA 里没配 DASHSCOPE_API_KEY 环境变量 | Run Configurations → Environment variables → DASHSCOPE_API_KEY=sk-... |
+| 模型回答不引用上下文 | 通用 system prompt 没约束 RAG 行为 | 写 RAG 专用 prompt,强制上下文无就不答 |
+
+### 12.5 与课程案例的对照
+
+| 项 | 课程(恋爱大师) | 本项目(旅游规划) | 评价 |
+|----|------------------|-------------------|------|
+| 类名 | LoveAppDocumentLoader / LoveAppVectorStoreConfig | TravelDocumentLoader / TravelVectorStoreConfig | 全 travel 化 |
+| 元数据 key | filename | doc_type(语义更深) | 更明确 |
+| topK + threshold | 教程用默认 topK=4, threshold=0 | 本项目 topK=3, threshold=0.5 | 更严格,挡噪声 |
+| 兜底话术 | 教程没有 | 暂无相关旅游攻略信息 | 避免胡编 |
+| System Prompt | 教程用通用 love-master-system.st | 本项目用 RAG 专用 travel-rag-system.st | 强约束 |
+| 测试方式 | Debug doChatWithRag() 看 qa_retrieved_documents | 单元测试 + 兜底对比 | 可重复 |
+
+教程案例 100% 复用 + 3 个生产增强(兜底话术 / 检索阈值 / RAG 专用 prompt)。
+
+---
+
 ## 附录：章节索引
 
 | 章节 | 文件 |

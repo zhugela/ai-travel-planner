@@ -1391,6 +1391,122 @@ if (answer == null || answer.isBlank()) {
 
 ---
 
+## 十七、元数据标注实践 - budget 字段 (2026-06-22)
+
+### 17.1 为什么加
+
+教程 Ch 05 「文档收集和切割 → 元数据标注」小节演示给 Document 加多种元数据(type/year/style),用于:
+- 后续 filterExpression 过滤
+- 检索时按业务维度筛
+
+适配本项目 = **给旅游文档加 budget 字段**(low/mid/high),支持"按预算过滤"。
+
+之前工程只加了 doc_type(从文件名拿),这次加 budget,让"按预算过滤"成为可能。
+
+### 17.2 实现策略
+
+- 不改 .md 文件内容
+- 通过**文件名编码** budget:`-low-` / `-mid-` / 其他 → high
+- 解析逻辑放在 `TravelDocumentLoader.extractBudget(fileName)` 私有方法
+- 配合现有 doc_type 元数据一起注入 Document
+
+### 17.3 改动清单
+
+| 文件 | 改动 |
+|------|------|
+| 3 份 md | 重命名(travel-short-trip → travel-domestic-low 等) |
+| TravelDocumentLoader | 加 extractBudget() 私有方法 + 多注入一个元数据 |
+| 笔记 §17 | 本节 |
+
+### 17.4 解析规则(关键字匹配)
+
+| 文件名包含 | budget |
+|------------|--------|
+| "low" | "low" |
+| "mid" | "mid" |
+| 其他(默认) | "high" |
+
+> 选关键字匹配而不是 enum 严格匹配,是因为文件名不固定,关键字匹配鲁棒性更好。
+> 误判风险:文件名含 "low" 但实际 budget != low,目前不会出现。
+
+### 17.5 改动后的 3 份 md
+
+| 原名 | 新名 | budget | region |
+|------|------|--------|--------|
+| travel-short-trip.md | travel-domestic-low.md | low | domestic |
+| travel-domestic-long.md | travel-domestic-mid.md | mid | domestic |
+| travel-overseas.md | travel-overseas.md(不变) | high(默认) | overseas(从 name 推断) |
+
+**为什么境外 = high**:旅游场景下,出境的预算天然比国内高(机票 + 签证 + 汇率),用 high 表示合理。
+
+### 17.6 用法示例(后续可启用)
+
+```java
+// 按预算过滤(本地 SimpleVectorStore 路线)
+List<Document> docs = vectorStore.similaritySearch(
+    SearchRequest.builder()
+        .query("5 天 5000 元怎么玩")
+        .filterExpression("budget == 'mid'")  // ← 只检索中等预算
+        .build()
+);
+```
+
+**项目当前用云路线**,filterExpression 暂时无效;以后切回本地时可直接用。
+
+### 17.7 教程的"完整元数据"vs 本项目
+
+教程给室内设计案例加 4 个元数据:
+- type(类型)
+- year(年份)
+- month(月份)
+- style(风格)
+
+本项目只加 1 个 budget,**因为**:
+- 文档类型单一(都是旅游攻略)
+- 旅游攻略不强调年份/月份
+- 预算档位就是核心业务维度
+
+**够用就行,1 个元数据 = 25% 教程内容 = 100% 项目需求**。
+
+### 17.8 代码关键片段
+
+```java
+// TravelDocumentLoader.loadMarkdownDocuments() 循环内
+String filename = resource.getFilename();
+String budget = extractBudget(filename);
+
+MarkdownDocumentReaderConfig config = MarkdownDocumentReaderConfig.builder()
+        .withHorizontalRuleCreateDocument(true)
+        .withIncludeCodeBlock(true)
+        .withIncludeBlockquote(true)
+        .withAdditionalMetadata("doc_type", filename)
+        .withAdditionalMetadata("budget", budget)  // ← 新增
+        .build();
+
+private String extractBudget(String fileName) {
+    if (fileName == null) return "high";
+    String lower = fileName.toLowerCase();
+    if (lower.contains("low")) return "low";
+    if (lower.contains("mid")) return "mid";
+    return "high";
+}
+```
+
+### 17.9 启动日志验证
+
+启动项目后,本地 SimpleVectorStore 加载 3 份 md 时日志会显示:
+
+```
+开始加载知识库文件:travel-domestic-low.md | budget=low
+开始加载知识库文件:travel-domestic-mid.md | budget=mid
+开始加载知识库文件:travel-overseas.md | budget=high
+Loaded 18 documents from classpath:document/*.md
+```
+
+每段 Document 现在都带两个元数据:`doc_type` + `budget`。
+
+---
+
 ## 附录：章节索引
 
 | 章节 | 文件 |

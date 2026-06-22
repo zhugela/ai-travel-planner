@@ -65,8 +65,13 @@ public class TravelDocumentLoader {
             // 2) 逐个 .md 文件处理
             for (Resource resource : resources) {
 
-                // 取出文件名,例如 "travel-short-trip.md",作为 doc_type 元数据的值
+                // 取出文件名,例如 "travel-domestic-low.md",作为 doc_type 元数据的值
                 String filename = resource.getFilename();
+
+                // 解析预算档位(从文件名关键字),作为 budget 元数据
+                // 规则:文件名含 "low" → low,含 "mid" → mid,其他 → high
+                String budget = extractBudget(filename);
+                log.info("开始加载知识库文件:{} | budget={}", filename, budget);
 
                 // 3) 配置本次读取的规则
                 MarkdownDocumentReaderConfig config = MarkdownDocumentReaderConfig.builder()
@@ -79,6 +84,9 @@ public class TravelDocumentLoader {
                         // 附加元数据 doc_type=文件名
                         // 后续可以在检索时按 doc_type 过滤,也能在答案里看到来源
                         .withAdditionalMetadata("doc_type", filename)
+                        // 附加元数据 budget=预算档位(low/mid/high)
+                        // 后续可按预算过滤,例如 filterExpression("budget == 'low'")
+                        .withAdditionalMetadata("budget", budget)
                         // 收尾,builder 模式必须 .build()
                         .build();
 
@@ -100,5 +108,28 @@ public class TravelDocumentLoader {
         }
 
         return allDocuments;
+    }
+
+    /**
+     * 从文件名解析预算档位(关键字匹配)
+     * 规则:
+     *   - 文件名含 "low" → "low"   (如 travel-domestic-low.md)
+     *   - 文件名含 "mid" → "mid"   (如 travel-domestic-mid.md)
+     *   - 其他(默认)   → "high"  (如 travel-overseas.md, 境外天然高预算)
+     *
+     * 关键字匹配而不是 enum 严格匹配,是为了文件名变更时仍有鲁棒性。
+     */
+    private String extractBudget(String fileName) {
+        if (fileName == null) {
+            return "high";
+        }
+        String lower = fileName.toLowerCase();
+        if (lower.contains("low")) {
+            return "low";
+        }
+        if (lower.contains("mid")) {
+            return "mid";
+        }
+        return "high";
     }
 }

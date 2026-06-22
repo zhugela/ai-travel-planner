@@ -798,6 +798,100 @@ INFO  TravelRagChatService : ========== RAG 请求结束(兜底) ==========
 
 ---
 
+## 十三、云知识库接入 (2026-06-22)
+
+### 13.1 为什么要从本地切到云
+
+Ch 04 的本地 RAG(SimpleVectorStore + 3 份 md)已经跑通(见 §十二)。
+教程下半段讲的是 **百炼云知识库**(DashScopeDocumentRetriever),优势:
+- 不用本地 JVM 内存,文档量大也不会爆
+- 百炼平台统一管理,可被多人共享
+- 不需要自己写 ETL,平台帮你分块 + 向量化
+
+### 13.2 改动清单
+
+| 文件 | 类型 | 关键改动 |
+|------|------|----------|
+| config/TravelRagCloudAdvisorConfig.java | 新建 | @Bean Advisor travelRagCloudAdvisor,接百炼云知识库「旅游规划」 |
+| service/TravelRagChatService.java | 改 | 删除 VectorStore 字段,改用 Advisor 注入,ChatClient defaultAdvisors 改成云 advisor |
+| test/.../TravelRagChatServiceTest.java | 改 | 适配云 advisor 新流程,删 similaritySearch 预检 |
+
+### 13.3 关键代码(完整)
+
+**TravelRagCloudAdvisorConfig.java**
+
+```java
+@Configuration
+@Slf4j
+public class TravelRagCloudAdvisorConfig {
+
+    @Value("${spring.ai.dashscope.api-key}")
+    private String dashScopeApiKey;
+
+    @Bean
+    public Advisor travelRagCloudAdvisor() {
+        DashScopeApi dashScopeApi = DashScopeApi.builder()
+                .apiKey(dashScopeApiKey)
+                .build();
+
+        final String KNOWLEDGE_INDEX = "旅游规划";
+
+        DashScopeDocumentRetriever documentRetriever =
+                new DashScopeDocumentRetriever(
+                        dashScopeApi,
+                        DashScopeDocumentRetrieverOptions.builder()
+                                .withIndexName(KNOWLEDGE_INDEX)
+                                .build());
+
+        return RetrievalAugmentationAdvisor.builder()
+                .documentRetriever(documentRetriever)
+                .build();
+    }
+}
+```
+
+**关键 4 个 API(1.0.0.2)**
+
+| 类 | 包路径 |
+|----|--------|
+| DashScopeApi | com.alibaba.cloud.ai.dashscope.api.DashScopeApi |
+| DashScopeDocumentRetriever | com.alibaba.cloud.ai.dashscope.rag.DashScopeDocumentRetriever |
+| RetrievalAugmentationAdvisor | org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor |
+| Advisor 接口 | org.springframework.ai.chat.client.advisor.api.Advisor |
+
+> 完整对标教程 LoveAppRagCloudAdvisorConfig:
+> - 教程用 `new DashScopeApi(apiKey)`
+> - 1.0.0.2 没有单参构造器,改用 `DashScopeApi.builder().apiKey(key).build()`
+
+### 13.4 跟本地版的对照
+
+| 维度 | 本地(§十二) | 云(§十三) |
+|------|--------------|------------|
+| 数据源 | classpath:document/*.md | 百炼云知识库「旅游规划」 |
+| 检索器 | VectorStore.similaritySearch | DashScopeDocumentRetriever.retrieve |
+| 切分 | TravelDocumentLoader 自己做 | 百炼平台做 |
+| 兜底 | 预检 docs.isEmpty() → 固定话术 | 模型空回答 → 固定话术 |
+| 网络 | 0 调用(本地) | 1 次 embedding + 1 次 chat |
+| 重启 | 内存 Map 丢失 | 知识库永久 |
+
+### 13.5 踩坑记录(1.0.0.2 vs 教程原版)
+
+| 教程写法 | 1.0.0.2 实际写法 | 原因 |
+|---------|-----------------|------|
+| `new DashScopeApi(String)` | `DashScopeApi.builder().apiKey(String).build()` | 1.0.0.2 单参构造器删除 |
+| `org.springframework.ai.rag.retrieval.advisor.RetrievalAugmentationAdvisor` | `org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor` | 子包路径改了 |
+| `org.springframework.ai.rag.advisor.Advisor`(笔误) | `org.springframework.ai.chat.client.advisor.api.Advisor` | Advisor 接口在 chat-client 里,不在 rag.advisor 里 |
+| `ChatClient.defaultAdvisors(VectorStore)` | `ChatClient.defaultAdvisors(Advisor)` | Advisor 是更通用接口,适配更多场景 |
+
+### 13.6 验收方式
+
+- 单元测试:IDEA 里点 ▶ 跑 TravelRagChatServiceTest,需要先在 Run Configurations 里配 DASHSCOPE_API_KEY 环境变量
+- 启动日志期望看到:`[Cloud RAG] 初始化百炼云知识库 advisor,index=旅游规划`
+- 知识库没文档时返回通用回答(云 advisor 不强制兜底)
+- 知识库有内容时回答里出现知识库关键词
+
+---
+
 ## 附录：章节索引
 
 | 章节 | 文件 |

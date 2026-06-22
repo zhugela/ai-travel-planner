@@ -4,17 +4,17 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * RAG 问答服务单元测试
+ * 云知识库版 RAG 问答测试
  *
- * 对应教程图 1~4 的 Debug 复现:
- *  - 启动时 @SpringBootTest 加载完整 Spring 上下文
- *  - TravelVectorStoreConfig 自动把 3 份 md 向量化入库
- *  - ragChat_hit:命中知识库(北京周边),验证模型拿到上下文
- *  - ragChat_noMatch:无匹配(元宇宙),验证兜底话术
+ * 跟之前本地版的差异:
+ *   - 不用 similaritySearch 预检
+ *   - 云 advisor 内部检索 + 调模型,直接看返回值
+ *   - 命中:返回**不是**兜底话术即可
+ *   - 兜底:用通用问题验证也能正常返回
  */
 @SpringBootTest
 class TravelRagChatServiceTest {
@@ -24,13 +24,14 @@ class TravelRagChatServiceTest {
 
     /**
      * 用例 1:命中
-     * 问题:"北京周边 2 天怎么玩" 在 travel-short-trip.md 第 1 段
-     * 期望:返回 AI 生成的回答(包含 "古北水镇"/"爨底下"/"密云" 之一)
-     * 验证:assertNotNull + 答案非空
+     * 问云知识库"旅游规划"里有内容的话题
+     * 期望:模型返回基于知识库的回答(不能是兜底话术)
      */
     @Test
     void ragChat_hit() {
-        String question = "北京周边 2 天怎么玩?";
+        // TODO: 改成你云知识库里确实有的问题(等你告诉我云端有什么)
+        // 临时用一个旅游相关的通用问题,先验证链路通
+        String question = "请介绍一个国内适合3天短途游的目的地";
         System.out.println("========== 测试 1: 命中场景 ==========");
         System.out.println("[Q] " + question);
 
@@ -38,24 +39,24 @@ class TravelRagChatServiceTest {
 
         System.out.println("[A] " + answer);
         assertNotNull(answer, "命中场景的 answer 不应为 null");
+        assertTrue(!TravelRagChatService.NO_MATCH_REPLY.equals(answer),
+                "命中场景不应返回兜底话术");
     }
 
     /**
-     * 用例 2:兜底
-     * 问题:"元宇宙 7 天深度游" 知识库里没有
-     * 期望:返回固定兜底话术 "暂无相关旅游攻略信息"
-     * 验证:assertEquals 严格匹配
+     * 用例 2:通用问答
+     * 问一个云知识库大概率没有的通用问题
+     * 期望:模型给通用回答(云 advisor 不强制兜底,模型会自己答)
      */
     @Test
-    void ragChat_noMatch() {
-        String question = "元宇宙 7 天深度游攻略";
-        System.out.println("========== 测试 2: 兜底场景 ==========");
+    void ragChat_general() {
+        String question = "你好,请用一句话介绍你自己";
+        System.out.println("========== 测试 2: 通用问答 ==========");
         System.out.println("[Q] " + question);
 
         String answer = travelRagChatService.chatWithRag(question);
 
         System.out.println("[A] " + answer);
-        assertEquals(TravelRagChatService.NO_MATCH_REPLY, answer,
-                "无匹配时应返回固定兜底话术");
+        assertNotNull(answer);
     }
 }

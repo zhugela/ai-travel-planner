@@ -1002,6 +1002,197 @@ userNeed = "3 天短途,带老人,不想太累"
 
 ---
 
+## 十五、Ch 05 RAG 进阶速查表 (2026-06-22)
+
+> 本节是教程 Ch 05 "RAG 知识库进阶" 的**决策速查**,不是作业。
+> Ch 04 作业已经全部完成,Ch 05 是**调优和扩展**章节,本项目当前**全部跳过**。
+> 等用户反馈"答得不准"或"答得不全"时,回来查这一节。
+
+### 15.1 何时需要回到 Ch 05 改进
+
+| 现象 | 跳到本章小节 |
+|------|--------------|
+| 用户提问词太短/口语化,检索不到 | 15.3 预检索优化 |
+| 检索结果太多噪声,模型答得不准 | 15.4 检索后处理 |
+| 文档量大(>1 万段),加载慢 | 15.2 批处理 |
+| 文档多(>100 万段),内存不够 | 15.2 PGVector |
+| 单 RAG 不够,需要多数据源 | 15.5 多路检索合并 |
+
+### 15.2 文档加载进阶
+
+**已实现**:
+- ✅ `MarkdownDocumentReader` 读 .md(你项目用)
+- ✅ `VectorStore.add(List<Document>)`(你项目用)
+
+**未实现**(决策:跳过,等真需要再加)
+
+| API | 作用 | 何时启用 |
+|-----|------|---------|
+| `JsonReader(resource, "description", "features")` | 读 JSON 文件 | 数据源有 .json 时 |
+| `PagePdfDocumentReader("kb.pdf")` | 读 PDF | 攻略是 PDF 格式时 |
+| `MsgEmailParser.convertToDocument()` | 邮件转 Document | 客服对话数据 |
+| `TokenTextSplitter(1000, 400, 10, 5000, true)` | 按 token 切分长文 | 单段 > 5000 字 |
+| `KeywordMetadataEnricher(chatModel, 5)` | 用 LLM 提关键词做元数据 | 检索率低时增强 |
+| `SummaryMetadataEnricher(chatModel, PREVIOUS, CURRENT, NEXT)` | 摘要上下文 | 多轮引用上段时 |
+
+**批处理**(只适用于 PGVector 路线):
+```java
+// DashScope Embedding API 限制单次 batch ≤ 10
+for (int i = 0; i < documents.size(); i += 10) {
+    vectorStore.add(documents.subList(i, Math.min(i + 10, documents.size())));
+}
+```
+你项目用 SimpleVectorStore,add() 一次性传完,不需要。
+
+### 15.3 预检索优化(Query → 更好的 Query)
+
+**3 个改写器**(都跳过,理由写在右边):
+
+```java
+// 1. 改写:鱼皮啊啊啊 → 鱼皮
+RewriteQueryTransformer.builder().chatClientBuilder(builder).build()
+// 你项目:用户都问清楚,不需要
+
+// 2. 翻译:who is yupi → 程序员鱼皮是谁
+TranslationQueryTransformer.builder()
+    .chatClientBuilder(builder).targetLanguage("chinese").build()
+// 你项目:用户都问中文,不需要
+
+// 3. 压缩:多轮对话历史压缩
+CompressionQueryTransformer.builder().chatClientBuilder(builder).build()
+// 你项目:云路线无状态无多轮,不需要
+
+// 4. 扩展:1 个问题 → 3 个变体
+MultiQueryExpander.builder()
+    .chatClientBuilder(builder).numberOfQueries(3).build()
+// 你项目:topK=3 已经够,扩展反而稀释
+```
+
+**触发条件**:
+- 提问命中率 < 70%
+- 多轮对话变长(超过 5 轮)
+- 多语言用户
+
+### 15.4 检索后优化(粗排 → 精排)
+
+**已实现**:
+- ✅ `SearchRequest.topK(3)` 粗排
+- ✅ `SearchRequest.similarityThreshold(0.5)` 过滤低分
+- ✅ `filterExpression("doc_type == 'xxx'")` 元数据过滤(你项目**未启用**)
+
+**未实现**:
+
+```java
+// 精排:Cross-Encoder 比向量相似度更准
+DocumentRanker reranker = new CrossEncoderReranker(...);
+reranker.rank(query, documents);  // 重排 Top N
+
+// 压缩:ContextualCompressionExtracting 只留相关句子
+ContentFormatter formatter = DefaultContentFormatter.builder()
+    .withTextTemplate("{metadata_string}\n\n{content}").build();
+
+// 后处理:去掉重复
+DocumentPostProcessor deduplicator = new DuplicateDocumentPostProcessor();
+```
+
+**触发条件**:
+- 检索结果相似度都 < 0.7
+- 召回率高但答案冗余
+- 需要"相关度分数"排序
+
+### 15.5 多路检索 + 合并
+
+**多路检索** = 同时查多个数据源(本地 KB + 云 KB + 外部 API),合并结果:
+
+```java
+// 多数据源
+DocumentRetriever local = VectorStoreDocumentRetriever.builder()
+    .vectorStore(simpleVectorStore).topK(3).build();
+DocumentRetriever cloud = DashScopeDocumentRetriever...;
+DocumentRetriever web = WebSearchDocumentRetriever...;
+
+// 并行查询
+List<DocumentRetriever> retrievers = List.of(local, cloud, web);
+Map<Query, List<List<Document>>> results = ...;
+
+// 合并
+DocumentJoiner joiner = new ConcatenationDocumentJoiner();
+List<Document> merged = joiner.join(results);
+```
+
+**2 种合并策略**:
+- `ConcatenationDocumentJoiner` — 简单拼接
+- `ReciprocalRankFusionDocumentJoiner` — 倒排融合(更智能,需要 ranked 检索器)
+
+**触发条件**:
+- 文档分散在多个 KB
+- 私有知识(本地) + 公开知识(云) + 实时数据(API)都要查
+
+### 15.6 向量数据库选型速查
+
+| 数据库 | 类型 | 适用场景 | 学习成本 | 你项目 |
+|--------|------|---------|---------|--------|
+| `SimpleVectorStore` | 内存 | Demo / 测试 | 0 | ✅ 主用 / dormant |
+| `PgVector` | PostgreSQL | 生产,中等规模 | 中 | ⏸️ 未来 |
+| `Milvus` | 专用 | 大规模(亿级) | 高 | - |
+| `Qdrant` | 专用 | 大规模 + 高性能 | 高 | - |
+| `Chroma` | Python 系 | Python 生态 | 中 | - |
+| `Redis` | 内存+持久化 | 已有 Redis 集群 | 低 | - |
+
+**选型建议**:
+- 文档 < 1 万段 → SimpleVectorStore(够了)
+- 文档 1 万 ~ 100 万 → PgVector
+- 文档 > 100 万 → Milvus / Qdrant
+- 多机部署 → 任何持久化方案
+
+### 15.7 性能调优清单(从易到难)
+
+| 优化项 | 难度 | 预期收益 | 你项目 |
+|--------|------|---------|--------|
+| 调高 topK | 0(改配置) | +10% 召回 | 已 topK=3 |
+| 调低 similarityThreshold | 0(改配置) | +15% 召回 | 已 0.5 |
+| 加 MetadataEnricher | 中(改代码) | +20% 召回 | 跳过 |
+| 加 QueryRewrite | 中(改代码) | +15% 召回 | 跳过 |
+| 切到 PGVector | 中(改代码) | 持久化 | 跳过 |
+| 加 CrossEncoderRerank | 高(加模型) | +30% 准确 | 跳过 |
+| 加多路 RAG | 高(改架构) | +50% 召回 | 跳过 |
+
+### 15.8 决策树:用户反馈"答得不准"时怎么调
+
+```
+用户反馈"答得不准"
+  │
+  ├─ Q1: 召回率低(检索不到相关文档)?
+  │   ├─ 是 → 调低 similarityThreshold 0.5 → 0.3
+  │   ├─ 还低 → 加 QueryRewrite / MultiQueryExpander
+  │   ├─ 还低 → 换 PGVector 全文检索兜底
+  │   └─ 还低 → 检查文档质量(切片是否合理)
+  │
+  └─ Q2: 召回了但答案错?
+      ├─ 上下文噪声多 → 调高 threshold 0.5 → 0.7
+      ├─ 还错 → 加 CrossEncoderRerank 精排
+      ├─ 还错 → 加 SummaryEnricher 摘要
+      └─ 还错 → 检查 prompt(RAG 专用 prompt?)
+```
+
+### 15.9 你项目当前"调优"档位
+
+```
+召回率:  基础(单 KB,topK=3,threshold=0.5)
+精排:    无(只靠向量相似度)
+压缩:    无(原始 context 全塞 prompt)
+多路:    无(单云 KB)
+持久化:  无(SimpleVectorStore 内存)
+批处理:  无(全量一次 add)
+```
+
+**调优档位:Level 0 / 5**(Level 5 是生产顶配,你是 Level 0)
+**业务可用性:Level 4 / 5**(用户能问能答,只是不准不全)
+
+> 工程哲学:**先让系统能跑,再让它准**。你工程在"能跑"阶段已经完成,调优是后续迭代。
+
+---
+
 ## 附录：章节索引
 
 | 章节 | 文件 |

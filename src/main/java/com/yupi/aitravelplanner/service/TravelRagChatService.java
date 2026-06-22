@@ -39,6 +39,9 @@ public class TravelRagChatService {
     /** RAG 专用 System Prompt 文件位置 */
     private static final String SYSTEM_PROMPT_PATH = "prompts/travel-rag-system.st";
 
+    /** 目的地推荐专用 System Prompt 文件位置(临时覆盖 defaultSystem) */
+    private static final String RECOMMEND_SYSTEM_PROMPT_PATH = "prompts/destination-recommend-system.st";
+
     /** ChatClient(本类自己构造,见构造器) */
     private final ChatClient chatClient;
 
@@ -101,6 +104,46 @@ public class TravelRagChatService {
         log.info("========== RAG 请求结束(命中) ==========");
 
         return answer;
+    }
+
+    /**
+     * 目的地推荐(MVP)
+     * 复用云 advisor + 临时换 prompt → 模型按规则列 3~5 个目的地
+     * @param userNeed 用户需求,如"3 天短途带老人"
+     * @return 纯文本目的地列表,每行一个 "- 【城市】:理由"
+     */
+    public String recommendDestinations(String userNeed) {
+        log.info("========== 目的地推荐开始 ==========");
+        log.info("[需求] {}", userNeed);
+
+        String recommendPrompt = readRecommendPrompt();
+
+        // 复用 cloud advisor 检索"旅游规划"知识库,但临时换 system prompt
+        // 让模型按"列表格式"输出,而不是普通问答
+        String result = chatClient.prompt()
+                .system(recommendPrompt)
+                .user(userNeed)
+                .advisors(travelRagCloudAdvisor)
+                .call()
+                .content();
+
+        log.info("[推荐结果]\n{}", result);
+        log.info("========== 目的地推荐结束 ==========");
+
+        return result == null || result.isBlank() ? "暂无合适的旅游目的地推荐" : result;
+    }
+
+    /**
+     * 读 resources/prompts/destination-recommend-system.st 的内容作为推荐 prompt
+     */
+    private String readRecommendPrompt() {
+        try {
+            ClassPathResource resource = new ClassPathResource(RECOMMEND_SYSTEM_PROMPT_PATH);
+            return new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.error("读取推荐 Prompt 失败: {}", RECOMMEND_SYSTEM_PROMPT_PATH, e);
+            return "你是旅游规划助手,基于上下文推荐 3~5 个目的地,每行格式:- 【城市】:理由";
+        }
     }
 
     /**

@@ -892,6 +892,116 @@ public class TravelRagCloudAdvisorConfig {
 
 ---
 
+## 十四、扩展思路落地:目的地推荐 (2026-06-22)
+
+### 14.1 对标教程思路
+
+教程 Ch 04 「扩展思路 #1」原文:
+> 利用 RAG 知识库,实现"通过用户的问题推荐可能的恋爱对象"功能。
+> 参考思路:新建一个恋爱对象文档,每行数据包含一位用户的基本信息
+> (比如年龄、星座、职业)。
+
+适配本项目 = **"通过用户问题推荐旅游目的地"**。
+
+### 14.2 设计选择(MVP)
+
+| 选项 | 选择 | 理由 |
+|------|------|------|
+| 数据源 | 复用现有云 KB「旅游规划」 | 不开新 KB,30 分钟完工 |
+| 输出格式 | 纯文本列表 | MVP 不强求结构化,前端可正则解析 |
+| 调用入口 | Service 新方法 | 不加 HTTP 端点(后续可补) |
+| 新建类 | 0 个 | 加在 TravelRagChatService 里就行 |
+
+### 14.3 改动清单
+
+| 文件 | 类型 | 操作 |
+|------|------|------|
+| prompts/destination-recommend-system.st | 新建 | 14 行 prompt,改 defaultSystem 为「列 3~5 个目的地」 |
+| service/TravelRagChatService.java | 改 | 加常量 + recommendDestinations() 方法 + 私有 readRecommendPrompt() |
+| test/.../TravelRagChatServiceTest.java | 改 | 加 1 个 recommendDestinations 用例 |
+
+代码改动总计 +47 行。
+
+### 14.4 核心实现
+
+**destination-recommend-system.st**(摘要)
+
+```
+你是一位资深的旅游规划助手,基于下面提供的「知识库上下文」,根据用户的需求
+推荐 3~5 个最适合的旅游目的地。
+
+【推荐规则】
+1. 严格基于上下文,不要编造上下文里没有的城市、景点、价格。
+2. 上下文没有相关目的地时直接回复"暂无合适的旅游目的地推荐"。
+3. 推荐按"匹配度"排序,最匹配的放最前面。
+4. 每个目的地用 1~2 句话说明推荐理由。
+5. 输出格式固定为:每个目的地独立一行,以"- "开头,后面跟【城市名 + 推荐理由】。
+6. 不要加任何额外的开场白或总结。
+
+【输出示例】
+- 【北京】:适合 2 天短途游,古北水镇和长城是经典路线
+- 【成都】:3 天美食 + 都江堰青城山,慢节奏适合亲子
+```
+
+**Service 方法**(核心 6 行)
+
+```java
+String result = chatClient.prompt()
+        .system(recommendPrompt)              // 临时换 prompt
+        .user(userNeed)                       // "3天短途带老人"
+        .advisors(travelRagCloudAdvisor)      // 复用云 KB
+        .call()
+        .content();
+```
+
+关键技巧:**不**额外建 ChatClient,在调用时**临时**用 `.system(recommendPrompt)` 覆盖 `defaultSystem`。
+
+### 14.5 数据流
+
+```text
+userNeed = "3 天短途,带老人,不想太累"
+  │
+  └─→ TravelRagChatService.recommendDestinations(userNeed)
+        │
+        ├─ 读 prompts/destination-recommend-system.st
+        │
+        ├─ chatClient.prompt()
+        │     .system(recommendPrompt)
+        │     .user(userNeed)
+        │     .advisors(travelRagCloudAdvisor)
+        │     .call()
+        │     .content()
+        │
+        │  ① RetrievalAugmentationAdvisor 调 DashScopeDocumentRetriever
+        │     → 百炼 → 「旅游规划」KB → List<Document>
+        │  ② 把 List<Document> 拼成 context 塞进 user 消息
+        │  ③ 调 ChatModel(qwen-plus),prompt 规则强制「列 3~5 个目的地」
+        │  ④ 返回 String(每行一个 - 【城市】:理由)
+        │
+        └─ return String
+```
+
+### 14.6 期望输出示例
+
+输入:"3 天短途,带老人,不想太累"
+
+```
+- 【北京】:古北水镇慢节奏、长城缆车,适合 2 天慢游带老人
+- 【成都】:慢生活 + 都江堰青城山,3 天刚好
+- 【杭州】:西湖游船 + 灵隐寺,节奏舒缓适合长辈
+```
+
+### 14.7 后续可扩展方向(留待以后)
+
+| 方向 | 实现要点 |
+|------|----------|
+| HTTP 端点 | 新增 TravelRagController.recommend(),Body{need},Response{text} |
+| 结构化输出 | 用 record DestinationRecommend(String name, String reason) + .entity() |
+| 独立 KB | 新建云 KB 「目的地候选」,上传 30 个城市 profile,新建第二个 Advisor Bean |
+| 多轮澄清 | 用户问完推荐,接着问预算/天数/季节,逐步缩小范围 |
+
+---
+
 ## 附录：章节索引
 
 | 章节 | 文件 |

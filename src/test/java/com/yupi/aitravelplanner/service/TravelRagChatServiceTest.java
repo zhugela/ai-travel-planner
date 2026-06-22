@@ -59,4 +59,21 @@ class TravelRagChatServiceTest {
         System.out.println("[A] " + answer);
         assertNotNull(answer);
     }
+
+    /**
+     * 用例 3:目的地推荐(扩展思路)
+     * 给一个用户需求 → 模型按 prompt 规则列 3~5 个候选目的地
+     */
+    @Test
+    void recommendDestinations() {
+        String need = "3 天短途,带老人,不想太累";
+        System.out.println("========== 测试 3: 目的地推荐 ==========");
+        System.out.println("[需求] " + need);
+
+        String result = travelRagChatService.recommendDestinations(need);
+
+        System.out.println("[推荐]\n" + result);
+        assertNotNull(result);
+        assertTrue(result.length() > 5, "推荐结果应有内容");
+    }
 }

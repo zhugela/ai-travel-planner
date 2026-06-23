@@ -252,89 +252,273 @@ Spring AI 执行本地 WeatherTools.getWeather("北京")
 
 ---
 
-## 四、6 大类工具开发（适配旅游场景）
+## 四、自研主流工具完整开发（文件操作、联网搜索、网页抓取）
 
-### 4.1 文件操作
+> 本节是教程 3 个真实工具的**完整代码 + 工程规范 + 测试指引**,
+> 你写下时直接拷贝改 @Tool 描述文字即可。
 
+### 4.0 开发前置规范（通用）
+
+**什么情况下才自研工具**：
+- 社区无现成可用工具时才自研
+- AI 原生能完成的逻辑**不要封装工具**（每调用一次工具 = 多一轮大模型交互，损耗性能）
+
+**项目统一规范**：
+
+| 规范 | 做法 | 原因 |
+|------|------|------|
+| 包分层 | `tools/` 包存放工具类,`constant/` 存放常量 | 结构清晰 |
+| 返回值 | 统一返回 `String` | 方便序列化传给大模型 |
+| 描述清晰 | `@Tool`、`@ToolParam` 的描述文字必须清晰 | 决定大模型「何时调用该工具」 |
+| 异常处理 | 全程 try-catch,返回错误文本 | 不让异常污染对话流 |
+| 密钥/路径 | 放入配置文件 / 环境变量,不进代码 | 安全 |
+
+### 4.1 文件操作工具（FileOperationTool）
+
+**安全隔离设计**:统一隔离到项目根目录 `/tmp/file` 下,防止乱读写系统文件。
+
+**常量接口 `constant/FileConstant.java`**:
 ```java
-@Tool(description = "把字符串内容写入指定文件")
-public String writeToFile(
-    @ToolParam(description = "文件路径") String path,
-    @ToolParam(description = "文件内容") String content
-) {
-    try {
-        Files.writeString(Path.of(path), content, StandardOpenOption.CREATE);
-        return "写入成功:" + path;
-    } catch (IOException e) {
-        return "写入失败:" + e.getMessage();
+public interface FileConstant {
+    String FILE_SAVE_DIR = System.getProperty("user.dir") + "/tmp/file";
+}
+```
+
+**工具类 `tools/FileOperationTool.java`**:
+```java
+@Component
+@Slf4j
+public class FileOperationTool {
+
+    private final String baseDir = FileConstant.FILE_SAVE_DIR;
+
+    @Tool(description = "读取指定文件的文本内容,参数为文件名,如'北京攻略.md'")
+    public String readFile(
+        @ToolParam(description = "文件名称,如'北京攻略.md'") String fileName
+    ) {
+        try {
+            File file = new File(baseDir, fileName);
+            if (!file.exists()) {
+                return "文件不存在";
+            }
+            String content = cn.hutool.core.io.FileUtil.readUtf8String(file);
+            return content;
+        } catch (Exception e) {
+            return "读取文件失败: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = "把文本内容写入到指定文件,成功返回文件路径")
+    public String writeFile(
+        @ToolParam(description = "文件名称,如'东京之旅.md'") String fileName,
+        @ToolParam(description = "待写入的文本内容") String content
+    ) {
+        try {
+            File dir = new File(baseDir);
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            File file = new File(dir, fileName);
+            cn.hutool.core.io.FileUtil.writeUtf8String(content, file);
+            return "文件已保存到: " + file.getAbsolutePath();
+        } catch (Exception e) {
+            return "文件保存失败: " + e.getMessage();
+        }
     }
 }
 ```
 
-**你项目价值**：保存 AI 生成的行程单为 Markdown。
-
-### 4.2 联网搜索
-
+**单元测试 `FileOperationToolTest`**:
 ```java
-@Tool(description = "联网搜索实时信息")
-public String webSearch(
-    @ToolParam(description = "搜索关键词") String query
-) {
-    // 接第三方 API:百度/谷歌/秘塔
-    return "搜索结果...";
+@SpringBootTest
+class FileOperationToolTest {
+
+    @Resource
+    private FileOperationTool fileOperationTool;
+
+    @Test
+    void writeFile() {
+        String result = fileOperationTool.writeFile("test.txt", "Hello World");
+        System.out.println(result);
+        assertNotNull(result);
+    }
+
+    @Test
+    void readFile() {
+        String result = fileOperationTool.readFile("test.txt");
+        System.out.println(result);
+        assertNotNull(result);
+    }
 }
 ```
 
-**你项目价值**：实时天气 / 实时景点客流 / 突发新闻。
+**`.gitignore` 追加**（防止本地文件泄露）:
+```text
+# 工具文件操作隔离目录
+/tmp/file/
+```
 
-### 4.3 网页抓取（jsoup）
+### 4.2 联网搜索工具（WebSearchTool）
 
+**实现思路**:接第三方 SearchAPI(支持百度/谷歌),搜关键词→5 条标题+链接+摘要。
+
+**配置 `application.yml`**:
+```yaml
+search-api:
+  api-key: ${SEARCH_API_KEY}
+```
+
+**工具类 `tools/WebSearchTool.java`**:
 ```java
-@Tool(description = "抓取指定 URL 的网页纯文本")
-public String fetchUrl(
-    @ToolParam(description = "URL") String url
-) {
-    return Jsoup.connect(url).get().body().text();
+@Component
+@Slf4j
+public class WebSearchTool {
+
+    @Value("${search-api.api-key}")
+    private String apiKey;
+
+    private static final String SEARCH_URL =
+        "https://serpapi.com/search?q={query}&api_key={apiKey}&engine=baidu";
+
+    @Tool(description = "联网搜索实时信息,参数为搜索关键词,如'北京今日天气'")
+    public String searchWeb(
+        @ToolParam(description = "搜索关键词") String query
+    ) {
+        try {
+            String url = StrUtil.format(SEARCH_URL,
+                cn.hutool.core.map.MapUtil.of("query", query, "apiKey", apiKey));
+            String json = HttpUtil.get(url);
+            JSONObject obj = JSONUtil.parseObj(json);
+            JSONArray results = obj.getJSONArray("organic_results");
+
+            if (results == null || results.isEmpty()) {
+                return "未找到相关搜索结果";
+            }
+
+            StringBuilder sb = new StringBuilder("搜索结果如下:\n");
+            int limit = Math.min(results.size(), 5);
+            for (int i = 0; i < limit; i++) {
+                JSONObject item = results.getJSONObject(i);
+                sb.append("标题: ").append(item.getStr("title")).append("\n");
+                sb.append("链接: ").append(item.getStr("link")).append("\n");
+                sb.append("摘要: ").append(item.getStr("snippet")).append("\n\n");
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "联网搜索失败: " + e.getMessage();
+        }
+    }
 }
 ```
 
-**你项目价值**：从文旅局 / 景点官网抓最新公告。
+**单元测试 `WebSearchToolTest`**:
+```java
+@SpringBootTest
+class WebSearchToolTest {
 
-### 4.4 终端操作
+    @Value("${search-api.api-key}")
+    private String apiKey;
 
+    @Test
+    void searchWeb() {
+        WebSearchTool tool = new WebSearchTool();
+        // 因为工具类依赖 @Value,测试里用 setter 注入
+        // 或用 @Autowired 直接注入(推荐)
+        String result = tool.searchWeb("北京旅游攻略");
+        System.out.println(result);
+        assertNotNull(result);
+    }
+}
+```
+
+**注意**:测试前先申请 SerpAPI 或类似平台密钥。
+
+### 4.3 网页抓取工具（WebScrapingTool）
+
+**依赖**:你工程 `pom.xml` 已有 `jsoup 1.19.1`,直接写工具。
+
+**工具类 `tools/WebScrapingTool.java`**:
+```java
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
+@Component
+@Slf4j
+public class WebScrapingTool {
+
+    @Tool(description = "抓取指定 URL 的网页纯文本内容,用于获取网页信息")
+    public String scrapeWebPage(
+        @ToolParam(description = "要抓取的网页 URL") String url
+    ) {
+        try {
+            Document doc = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0")
+                    .timeout(10000)
+                    .get();
+            // 只返回 body 纯文本,减少 token 消耗
+            return doc.body().text();
+        } catch (IOException e) {
+            return "网页抓取失败: " + e.getMessage();
+        }
+    }
+}
+```
+
+**单元测试 `WebScrapingToolTest`**:
+```java
+@SpringBootTest
+class WebScrapingToolTest {
+
+    @Resource
+    private WebScrapingTool webScrapingTool;
+
+    @Test
+    void scrapeWebPage() {
+        String result = webScrapingTool.scrapeWebPage("https://codefather.cn");
+        System.out.println(result);
+        assertNotNull(result);
+    }
+}
+```
+
+### 4.4 其他工具（终端/下载/PDF）
+
+> 终端操作(4.4)、资源下载(4.5)、PDF 生成(4.6) 代码模板见本节下方,
+> 实际开发需要时再实现。
+
+**终端操作**（⚠️ 危险,需加白名单）:
 ```java
 @Tool(description = "执行 shell 命令")
 public String runCommand(
     @ToolParam(description = "命令") String command
 ) {
-    // ⚠️ 危险:需加白名单/超时
-    return new ProcessBuilder("bash", "-c", command)
-        .redirectErrorStream(true).start().inputStream().toString();
+    // 白名单:只允许特定命令
+    try {
+        Process p = new ProcessBuilder("bash", "-c", command)
+            .redirectErrorStream(true).start();
+        String output = new String(p.getInputStream().readAllBytes());
+        return output;
+    } catch (IOException e) {
+        return "执行失败: " + e.getMessage();
+    }
 }
 ```
 
-**你项目价值** ⭐:危险,不加(AI 可能误删文件)。
-
-### 4.5 资源下载
-
+**资源下载**:
 ```java
 @Tool(description = "下载 URL 指向的资源到本地")
 public String downloadFile(
     @ToolParam(description = "URL") String url,
     @ToolParam(description = "本地保存路径") String path
 ) {
-    // 用 Hutool HttpUtil.downloadFile
     HttpUtil.downloadFile(url, new File(path));
     return "已下载到 " + path;
 }
 ```
 
-**你项目价值**：下载景点高清图 / 行程模板。
-
-### 4.6 PDF 生成（iText）
-
+**PDF 生成**(iText):
 ```java
-@Tool(description = "把内容导出为 PDF 文件")
+@Tool(description = "把文本内容导出为 PDF 文件")
 public String generatePdf(
     @ToolParam(description = "PDF 路径") String path,
     @ToolParam(description = "内容") String content
@@ -350,7 +534,34 @@ public String generatePdf(
 }
 ```
 
-**你项目价值** ⭐⭐⭐⭐:导出可下载的行程 PDF(用户最常用功能之一)。
+### 4.5 工具组合:从搜索 → 文件 → PDF 完整链路
+
+```java
+// RAG Service 里注册所有工具
+String answer = chatClient.prompt()
+    .user("请帮我搜一下北京5天游攻略,下载一些图片,然后生成PDF给我")
+    .tools(new WebSearchTool(), new WebScrapingTool(),
+           new FileOperationTool(), new PdfGenerationTool())
+    .call()
+    .content();
+```
+
+**AI 内部自动调度**:
+```
+联网搜"北京5天游" → 抓取攻略网页 → 存为 .md 文件 → 生成 PDF
+  ↓                ↓               ↓              ↓
+ 搜索工具         爬虫工具        文件操作        PDF 工具
+  └──────────────── AI 自动链式调用 ──────────────┘
+```
+
+### 4.6 完整开发流程模板(自研通用)
+
+1. **规划**:判断是否必须自研,定义工具能力、入参、返回格式
+2. **分层**:常量→ `constant/`,工具类→ `tools/`,隔离文件/网络资源
+3. **封装**:`@Tool` + `@ToolParam` 注解,统一返回 `String`,全局 try-catch
+4. **配置**:密钥、路径放进配置文件,不硬编码
+5. **测试**:先跑单元测试验证工具逻辑,再接 ChatClient
+6. **优化**:过滤第三方 API 多余字段,只保留大模型需要的核心数据
 
 ---
 

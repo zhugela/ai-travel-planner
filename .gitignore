@@ -34,3 +34,8 @@ build/
 
 ### Chat memory persistence ###
 tmp/chat-memory/
+
+### Tool file isolation directories ###
+tmp/file/
+tmp/download/
+tmp/pdf/

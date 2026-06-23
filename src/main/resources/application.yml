@@ -40,6 +40,10 @@ knife4j:
   setting:
     language: zh_cn
 
+# 搜索 API 配置（SerpAPI）
+search-api:
+  api-key: ${SEARCH_API_KEY:}
+
 # 日志打印配置
 logging:
   level:

@@ -63,4 +63,13 @@ public class ToolRegistration {
     public WebSearchTool webSearchTool() {
         return new WebSearchTool();
     }
+
+    /**
+     * 天气查询工具（自研）
+     * 基于 wttr.in 公共 API，免 key。
+     */
+    @Bean
+    public WeatherTool weatherTool() {
+        return new WeatherTool();
+    }
 }

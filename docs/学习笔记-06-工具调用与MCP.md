@@ -867,6 +867,89 @@ String answer = chatClient.prompt()
 5. **测试**:先跑单元测试验证工具逻辑,再接 ChatClient
 6. **优化**:过滤第三方 API 多余字段,只保留大模型需要的核心数据
 
+### 4.7 自研工具实战:WeatherTool(天气查询)
+
+**作业 1b 要求自研 1 个全新工具,本项目落地的选择 —— WeatherTool。**
+
+#### 4.7.1 为什么做这个
+
+- 6 大复现工具都是"通用能力"(搜索/抓取/下载/文件/终端/PDF),没解决旅游场景的**具体痛点**
+- 旅行规划**最常被问**的就是"X 地 Y 天天气怎么样",工具直接返回比让 LLM 联网推理准
+- 教程 Ch 06 笔记 §四也建议过:作业自研选"天气查询"
+
+#### 4.7.2 API 选型对比
+
+| 选项 | 数据质量 | 注册成本 | 国内可用 | 选 |
+|------|----------|----------|----------|----|
+| **wttr.in** | 中(英文描述) | 0 | ✅ | ✅ |
+| 和风天气 qweather | 高(国内权威) | 要注册 + key | ✅ | — |
+| OpenWeatherMap | 中(国际权威) | 要注册 + key | ❌ 抽风 | — |
+| 心知天气 | 高 | 要注册 + key | ✅ | — |
+
+**定型 wttr.in 的 3 个理由**:
+1. **0 配置**:本项目已经有 DashScope + search-api 两个 key 依赖,再叠第 3 个 key = 雪上加霜
+2. **测试友好**:无 key 限流,本地 `mvn test` 能直接联通
+3. **数据够用**:天气描述、温度、湿度、风速、风向 5 个核心字段都有
+
+#### 4.7.3 输入输出设计
+
+**输入**:城市名(String),例 `杭州` / `Hangzhou` / `Tokyo`
+**输出**:格式化中文一行,例 `杭州:Sunny,15°C,湿度 60%,风速 12km/h NE`
+
+**为什么不返 JSON**:让 LLM 自己组织 = 多一步加工、增加幻觉风险;直接拼成中文 = LLM 直接复述即可。
+
+#### 4.7.4 数据源与字段
+
+请求 URL 模板:
+```
+GET https://wttr.in/{city}?format=j1
+```
+
+必带 header:
+```
+User-Agent: Mozilla/5.0 (compatible; AiTravelPlanner/1.0)
+Accept-Language: zh-CN,zh;q=0.9,en;q=0.8
+```
+
+**关键 5 字段**(都在 `current_condition[0]` 下):
+
+| 字段 | 例子 | 含义 | 注意事项 |
+|------|------|------|----------|
+| `temp_C` | `"15"` | 温度(°C) | **字符串类型** |
+| `humidity` | `"60"` | 湿度(%) | **字符串类型** |
+| `weatherDesc[0].value` | `"Sunny"` | 天气描述 | **数组**取 [0] |
+| `windspeedKmph` | `"12"` | 风速 | 字符串 |
+| `winddir16Point` | `"NE"` | 16 方位风向 | 缩写,需 LLM 理解 |
+
+**可选字段**(用于"匹配到最接近城市名"):
+- `nearest_area[0].areaName[0].value`:wttr.in 帮你纠正的英文城市名
+
+#### 4.7.5 已知坑(踩过的)
+
+1. **不带 User-Agent 返 403**:wttr.in 把裸 curl 当 bot 拦截
+2. **数字全是字符串**:`temp_C` 不是 `15` 而是 `"15"`,做数值运算要先 `Integer.parseInt`
+3. **`weatherDesc` 是数组**:`[{"value": "Sunny"}]`,不是字符串
+4. **超时设 10s**:wttr.in 海外节点偶发慢
+5. **城市名要 URLEncoder**:中文"杭州"要编码成 `%E6%9D%AD%E5%B7%9E`
+
+#### 4.7.6 ToolRegistration 接入
+
+在 `config/ToolRegistration.java` 加 1 个 `@Bean`:
+
+```java
+@Bean
+public WeatherTool weatherTool() {
+    return new WeatherTool();
+}
+```
+
+#### 4.7.7 测试覆盖
+
+`WeatherToolTest` 3 个 case:
+- `getWeather_validCity` —— 真实请求,验证返回包含温度/城市
+- `getWeather_emptyCity` —— 空字符串,验证返错误提示
+- `getWeather_nullCity` —— null,验证返错误提示
+
 ---
 
 ## 五、工具进阶核心 API
@@ -1407,12 +1490,12 @@ returnDirect 直接返回给用户
 
 | 作业 | 你的完成度 | 备注 |
 |------|----------|------|
-| 1. 6 类工具复现 | ⏸️ 0% | 代码模板在 §四，以后直接抄 |
-| 2. 自研 1 个新工具 | ⏸️ 0% | 建议做"天气查询"工具 |
+| 1. 6 类工具复现 | ✅ **100%** | 6 @Tool + 6 test + 集成,已 commit(feb0db1) |
+| 2. 自研 1 个新工具 | ✅ **100%** | WeatherTool(wttr.in 免 key,见 §四.7) |
 | 3. 底层原理笔记 | **100%** | §三~§六 完整覆盖 |
 | 4. 了解 MCP | ✅ 100% | §五.7 |
 
-**原理笔记 100%**，代码实现待以后落地。**Ch 06 教程 100% 笔记化**。
+**原理笔记 100%**,**6 工具复现 100%**,**自研 WeatherTool 100%**。**Ch 06 教程 100% 笔记化 + 100% 落地**。
 
 ---
 

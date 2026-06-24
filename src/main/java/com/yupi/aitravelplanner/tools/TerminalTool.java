@@ -101,7 +101,7 @@ public class TerminalTool {
      * 获取终端工具工作目录
      */
     @Tool(description = "获取终端工具的工作目录")
-    public String getWorkDir() {
+    public String getTerminalWorkDir() {
         return "终端工具工作目录: " + System.getProperty("user.dir");
     }
 }

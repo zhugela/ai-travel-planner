@@ -129,7 +129,7 @@ public class PdfGenerationTool {
      * 获取 PDF 工具的工作目录
      */
     @Tool(description = "获取PDF生成工具的工作目录")
-    public String getWorkDir() {
+    public String getPdfWorkDir() {
         return "PDF 生成工具工作目录: " + saveDir;
     }
 }

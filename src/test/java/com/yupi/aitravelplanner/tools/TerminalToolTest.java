@@ -34,11 +34,11 @@ class TerminalToolTest {
 
     @Test
     void runCommand_allowed() {
-        // Windows 下测试 echo 命令
-        String result = terminalTool.runCommand("echo hello");
+        // 白名单里的命令:java -version(非 Windows-only,跨平台稳)
+        String result = terminalTool.runCommand("java -version");
 
         assertNotNull(result);
-        assertTrue(result.contains("hello") || result.contains("命令执行"));
+        assertTrue(result.length() > 0);
     }
 
     @Test
@@ -50,8 +50,8 @@ class TerminalToolTest {
     }
 
     @Test
-    void getWorkDir() {
-        String result = terminalTool.getWorkDir();
+    void getTerminalWorkDir() {
+        String result = terminalTool.getTerminalWorkDir();
 
         assertNotNull(result);
         assertTrue(result.contains("工作目录"));

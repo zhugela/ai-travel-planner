@@ -84,7 +84,7 @@ public class FileOperationTool {
      * @return 工作目录路径
      */
     @Tool(description = "获取文件操作工具的工作目录路径")
-    public String getWorkDir() {
+    public String getFileOpWorkDir() {
         return "文件操作工具工作目录: " + baseDir;
     }
 }

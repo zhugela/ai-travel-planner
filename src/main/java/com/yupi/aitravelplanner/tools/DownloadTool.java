@@ -113,7 +113,7 @@ public class DownloadTool {
      * 获取下载工具的工作目录
      */
     @Tool(description = "获取资源下载工具的工作目录")
-    public String getWorkDir() {
+    public String getDownloadWorkDir() {
         return "资源下载工具工作目录: " + saveDir;
     }
 }

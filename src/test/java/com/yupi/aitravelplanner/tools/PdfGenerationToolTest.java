@@ -42,8 +42,8 @@ class PdfGenerationToolTest {
     }
 
     @Test
-    void getWorkDir() {
-        String result = pdfGenerationTool.getWorkDir();
+    void getPdfWorkDir() {
+        String result = pdfGenerationTool.getPdfWorkDir();
 
         assertNotNull(result);
         assertTrue(result.contains("工作目录"));

@@ -42,8 +42,8 @@ class DownloadToolTest {
     }
 
     @Test
-    void getWorkDir() {
-        String result = downloadTool.getWorkDir();
+    void getDownloadWorkDir() {
+        String result = downloadTool.getDownloadWorkDir();
 
         assertNotNull(result);
         assertTrue(result.contains("工作目录"));

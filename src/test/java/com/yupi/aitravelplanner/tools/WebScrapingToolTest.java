@@ -33,11 +33,10 @@ class WebScrapingToolTest {
 
     @Test
     void scrapeWebPage_validUrl() {
-        // 测试抓取一个简单网页
-        String result = webScrapingTool.scrapeWebPage("https://www.baidu.com");
+        // example.com 是 IANA 官方保留测试域名,稳定可访问无反爬
+        String result = webScrapingTool.scrapeWebPage("https://example.com");
 
         assertNotNull(result);
-        // 百度首页应该有内容
         assertTrue(result.length() > 10);
     }
 

@@ -57,8 +57,8 @@ class FileOperationToolTest {
     }
 
     @Test
-    void getWorkDir() {
-        String result = fileOperationTool.getWorkDir();
+    void getFileOpWorkDir() {
+        String result = fileOperationTool.getFileOpWorkDir();
 
         assertNotNull(result);
         assertTrue(result.contains("工作目录"));

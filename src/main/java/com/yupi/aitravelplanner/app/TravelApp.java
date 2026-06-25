@@ -10,6 +10,8 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.SystemPromptTemplate;
+import org.springframework.ai.mcp.client.SyncMcpToolCallbackProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,7 @@ import org.springframework.util.StringUtils;
 
 import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,6 +50,9 @@ public class TravelApp {
     private final DownloadTool downloadTool;
     private final PdfGenerationTool pdfGenerationTool;
 
+    // MCP 工具提供者（可选，没有 MCP 服务时为空）
+    private final SyncMcpToolCallbackProvider mcpToolCallbackProvider;
+
     @Value("${search-api.api-key:}")
     private String searchApiKey;
 
@@ -57,7 +63,9 @@ public class TravelApp {
             WebScrapingTool webScrapingTool,
             TerminalTool terminalTool,
             DownloadTool downloadTool,
-            PdfGenerationTool pdfGenerationTool
+            PdfGenerationTool pdfGenerationTool,
+            // 注入 MCP 工具提供者（可选，没有 MCP 服务时为空）
+            @Autowired(required = false) SyncMcpToolCallbackProvider mcpToolCallbackProvider
     ) {
         // 保存工具实例
         this.fileOperationTool = fileOperationTool;
@@ -66,6 +74,7 @@ public class TravelApp {
         this.terminalTool = terminalTool;
         this.downloadTool = downloadTool;
         this.pdfGenerationTool = pdfGenerationTool;
+        this.mcpToolCallbackProvider = mcpToolCallbackProvider;
 
         // 注入 API 密钥
         injectSearchApiKey();
@@ -77,6 +86,22 @@ public class TravelApp {
         String chatMemoryDir = System.getProperty("user.dir") + "/" + FileConstant.CHAT_MEMORY_DIR;
         ChatMemory chatMemory = new FileBasedChatMemory(chatMemoryDir);
 
+        // 构建工具列表
+        List<Object> tools = new ArrayList<>(List.of(
+                fileOperationTool,
+                webSearchTool,
+                webScrapingTool,
+                terminalTool,
+                downloadTool,
+                pdfGenerationTool
+        ));
+
+        // 如果有 MCP 工具，也加入
+        if (mcpToolCallbackProvider != null) {
+            tools.add(mcpToolCallbackProvider);
+            log.info("已接入 MCP 工具");
+        }
+
         // 创建 ChatClient，注册系统提示、对话记忆和工具
         this.chatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(systemPrompt)
@@ -85,17 +110,10 @@ public class TravelApp {
                         new MyLoggerAdvisor()
                 )
                 // 注册工具到 ChatClient
-                .defaultTools(
-                        fileOperationTool,
-                        webSearchTool,
-                        webScrapingTool,
-                        terminalTool,
-                        downloadTool,
-                        pdfGenerationTool
-                )
+                .defaultTools(tools.toArray())
                 .build();
 
-        log.info("TravelApp 初始化完成，已注册 6 个工具");
+        log.info("TravelApp 初始化完成，已注册 {} 个工具", tools.size());
     }
 
     /**

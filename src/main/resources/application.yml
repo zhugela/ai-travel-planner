@@ -27,6 +27,11 @@ spring:
       embedding:
         options:
           model: text-embedding-v3
+    # MCP 客户端配置（Stdio 本地模式）
+    mcp:
+      client:
+        stdio:
+          servers-configuration: classpath:mcp-servers.json
 
 # Knife4j 在线接口文档
 springdoc:

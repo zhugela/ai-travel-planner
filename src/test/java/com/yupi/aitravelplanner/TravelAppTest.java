@@ -42,4 +42,17 @@ class TravelAppTest {
         System.out.println("报告标题: " + report.title());
         System.out.println("建议列表: " + report.suggestions());
     }
+
+    /**
+     * 测试 MCP 工具调用
+     * 需要本地安装 Node.js 环境，并启动 filesystem MCP 服务
+     */
+    @Test
+    void testChatWithMcp() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "帮我读取 /tmp 目录下的文件列表";
+        String answer = travelApp.doChat(message, chatId);
+        assertNotNull(answer);
+        System.out.println("MCP 回复: " + answer);
+    }
 }

@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: yu-image-search-mcp-server
+  profiles:
+    # 默认走 stdio（本地子进程模式）；启动远程服务时改成 --spring.profiles.active=sse
+    active: stdio
+  ai:
+    mcp:
+      server:
+        name: yu-image-search-mcp-server
+        version: 0.0.1
+
+server:
+  port: 8127
+
+# ====== 第三方 API 密钥（占位符，等你申请后替换）======
+pexels:
+  api-key: REPLACE_WITH_YOUR_PEXELS_API_KEY

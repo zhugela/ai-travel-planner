@@ -1,0 +1,15 @@
+# Stdio 模式：本地子进程通信
+# 客户端通过 java -jar 拉起本服务，通过 stdin/stdout 与之通信
+spring:
+  ai:
+    mcp:
+      server:
+        name: yu-image-search-mcp-server
+        version: 0.0.1
+        type: SYNC
+        stdio: true
+
+# 关闭 Web 容器（stdio 模式不需要 Tomcat）
+main:
+  web-application-type: none
+  banner-mode: off

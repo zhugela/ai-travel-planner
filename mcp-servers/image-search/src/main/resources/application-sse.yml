@@ -1,0 +1,12 @@
+# SSE 模式：远程 HTTP 长连接
+# 客户端通过 http://host:8127/sse 连接本服务
+spring:
+  ai:
+    mcp:
+      server:
+        name: yu-image-search-mcp-server
+        version: 0.0.1
+        type: SYNC
+        stdio: false
+        sse-endpoint: /sse
+        sse-message-endpoint: /mcp/message

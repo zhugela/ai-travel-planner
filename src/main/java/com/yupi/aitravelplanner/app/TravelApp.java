@@ -9,6 +9,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.tool.definition.ToolCallback;
 import org.springframework.ai.chat.prompt.SystemPromptTemplate;
 import org.springframework.ai.mcp.client.SyncMcpToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -96,22 +97,30 @@ public class TravelApp {
                 pdfGenerationTool
         ));
 
-        // 如果有 MCP 工具，也加入
+        // 如果有 MCP 工具提供者，提取实际的 ToolCallback 列表加入
+        List<ToolCallback> mcpToolCallbacks = new ArrayList<>();
         if (mcpToolCallbackProvider != null) {
-            tools.add(mcpToolCallbackProvider);
-            log.info("已接入 MCP 工具");
+            mcpToolCallbacks = mcpToolCallbackProvider.getToolCallbacks();
+            log.info("已接入 MCP 工具提供者，检测到 {} 个工具", mcpToolCallbacks.size());
+            if (!mcpToolCallbacks.isEmpty()) {
+                tools.addAll(mcpToolCallbacks);
+            }
         }
 
         // 创建 ChatClient，注册系统提示、对话记忆和工具
-        this.chatClient = ChatClient.builder(dashscopeChatModel)
+        var chatClientBuilder = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(systemPrompt)
                 .defaultAdvisors(
                         MessageChatMemoryAdvisor.builder(chatMemory).build(),
                         new MyLoggerAdvisor()
-                )
-                // 注册工具到 ChatClient
-                .defaultTools(tools.toArray())
-                .build();
+                );
+        
+        // 只有当工具有内容时才注册，避免空工具列表导致异常
+        if (!tools.isEmpty()) {
+            chatClientBuilder.defaultTools(tools.toArray());
+        }
+        
+        this.chatClient = chatClientBuilder.build();
 
         log.info("TravelApp 初始化完成，已注册 {} 个工具", tools.size());
     }

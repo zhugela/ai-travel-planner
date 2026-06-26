@@ -1,5 +1,7 @@
-# 测试专用配置：禁用 MCP + 提供占位符 Key
-# 测试环境不需要真实连接外部服务，只验证 Spring 容器能启动
+# 测试专用配置
+# 1. 禁用 MCP 客户端（不连接真实 MCP 服务）
+# 2. 提供 DashScope 占位符 key（让 Spring 容器能启动）
+# 注意：不排除 ToolCallingAutoConfiguration，因为 DashScope 依赖它
 
 spring:
   ai:
@@ -8,8 +10,3 @@ spring:
     mcp:
       client:
         enabled: false
-  autoconfigure:
-    exclude:
-      - org.springframework.ai.mcp.client.autoconfigure.McpClientAutoConfiguration
-      - org.springframework.ai.mcp.client.autoconfigure.McpToolCallbackAutoConfiguration
-      - org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration

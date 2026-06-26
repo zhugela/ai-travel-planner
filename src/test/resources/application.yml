@@ -1,8 +1,8 @@
 # 测试专用配置：禁用 MCP Client
-# 让 @SpringBootTest 不尝试启动 MCP 服务进程
+# 让 @SpringBootTest 不尝试连接 MCP 服务，避免外部依赖导致测试失败
 
 spring:
-  ai:
-    mcp:
-      client:
-        enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.mcp.client.autoconfigure.McpClientAutoConfiguration
+      - org.springframework.ai.mcp.client.autoconfigure.McpToolCallbackAutoConfiguration

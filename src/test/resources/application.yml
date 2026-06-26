@@ -1,7 +1,11 @@
-# 测试专用配置：禁用 MCP Client
-# 让 @SpringBootTest 不尝试连接 MCP 服务，避免外部依赖导致测试失败
+# 测试专用配置：禁用外部依赖，避免测试失败
+# 1. 排除 MCP 客户端（不需要真实 MCP 服务）
+# 2. 提供 DashScope 占位符 key（不调用真实API就能过）
 
 spring:
+  ai:
+    dashscope:
+      api-key: test-dummy-key-only-for-spring-context-load
   autoconfigure:
     exclude:
       - org.springframework.ai.mcp.client.autoconfigure.McpClientAutoConfiguration

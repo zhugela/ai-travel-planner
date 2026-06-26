@@ -29,6 +29,10 @@ public class WeatherTool {
 
     private static final String USER_AGENT = "Mozilla/5.0 (compatible; AiTravelPlanner/1.0)";
 
+    // §八 安全:输入限制
+    private static final int MAX_CITY_LENGTH = 50;
+    private static final java.util.regex.Pattern DANGEROUS_CHARS = java.util.regex.Pattern.compile("[;&|`$<>'\"]");
+
     /**
      * 查询指定城市的实时天气
      *
@@ -41,6 +45,18 @@ public class WeatherTool {
     ) {
         if (city == null || city.trim().isEmpty()) {
             return "错误:城市名不能为空";
+        }
+
+        // §八 安全:输入长度限制(防注入超长字符串)
+        if (city.length() > MAX_CITY_LENGTH) {
+            log.warn("[安全审计] 城市名超长({}字符),拒绝: {}", city.length(), city);
+            return "错误:城市名过长(限 " + MAX_CITY_LENGTH + " 字符)";
+        }
+
+        // §八 安全:特殊字符过滤(防 shell / SQL / 命令注入)
+        if (DANGEROUS_CHARS.matcher(city).find()) {
+            log.warn("[安全审计] 城市名含特殊字符,拒绝: {}", city);
+            return "错误:城市名含非法字符";
         }
 
         try {

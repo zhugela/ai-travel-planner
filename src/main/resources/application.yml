@@ -27,11 +27,17 @@ spring:
       embedding:
         options:
           model: text-embedding-v3
-    # MCP 客户端配置（Stdio 本地模式）
+    # MCP 客户端配置
     mcp:
       client:
-        stdio:
-          servers-configuration: classpath:mcp-servers.json
+        # SSE 远程模式：连接已启动的 image-search MCP 服务
+        sse:
+          connections:
+            image-search:
+              url: http://localhost:8127
+        # Stdio 本地模式（启动子进程，注释掉用 SSE 更方便调试）
+        # stdio:
+        #   servers-configuration: classpath:mcp-servers.json
 
 # Knife4j 在线接口文档
 springdoc:

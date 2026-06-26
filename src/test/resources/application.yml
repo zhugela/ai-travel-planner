@@ -1,0 +1,8 @@
+# 测试专用配置：禁用 MCP Client
+# 让 @SpringBootTest 不尝试启动 MCP 服务进程
+
+spring:
+  ai:
+    mcp:
+      client:
+        enabled: false

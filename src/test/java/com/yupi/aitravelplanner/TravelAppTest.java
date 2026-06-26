@@ -44,15 +44,15 @@ class TravelAppTest {
     }
 
     /**
-     * 测试 MCP 工具调用
-     * 需要本地安装 Node.js 环境，并启动 filesystem MCP 服务
+     * 测试 MCP 图片搜索工具（端到端）
+     * 前置条件：image-search MCP 服务端已打包 jar
      */
     @Test
-    void testChatWithMcp() {
+    void testChatWithImageSearchMcp() {
         String chatId = UUID.randomUUID().toString();
-        String message = "帮我读取 /tmp 目录下的文件列表";
+        String message = "帮我搜索几张杭州西湖的旅游景点图片";
         String answer = travelApp.doChat(message, chatId);
         assertNotNull(answer);
-        System.out.println("MCP 回复: " + answer);
+        System.out.println("图片搜索 MCP 回复: " + answer);
     }
 }

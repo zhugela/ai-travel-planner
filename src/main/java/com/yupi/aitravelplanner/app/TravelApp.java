@@ -10,7 +10,7 @@ import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.SystemPromptTemplate;
-import org.springframework.ai.mcp.client.SyncMcpToolCallbackProvider;
+import org.springframework.ai.mcp.SyncMcpToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
@@ -86,34 +86,35 @@ public class TravelApp {
         String chatMemoryDir = System.getProperty("user.dir") + "/" + FileConstant.CHAT_MEMORY_DIR;
         ChatMemory chatMemory = new FileBasedChatMemory(chatMemoryDir);
 
-        // 构建工具列表
-        List<Object> tools = new ArrayList<>(List.of(
+        // 构建工具列表（POJO 工具对象）
+        Object[] tools = new Object[]{
                 fileOperationTool,
                 webSearchTool,
                 webScrapingTool,
                 terminalTool,
                 downloadTool,
                 pdfGenerationTool
-        ));
-
-        // 如果有 MCP 工具，也加入
-        if (mcpToolCallbackProvider != null) {
-            tools.add(mcpToolCallbackProvider);
-            log.info("已接入 MCP 工具");
-        }
+        };
 
         // 创建 ChatClient，注册系统提示、对话记忆和工具
-        this.chatClient = ChatClient.builder(dashscopeChatModel)
+        ChatClient.Builder builder = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(systemPrompt)
                 .defaultAdvisors(
                         MessageChatMemoryAdvisor.builder(chatMemory).build(),
                         new MyLoggerAdvisor()
                 )
-                // 注册工具到 ChatClient
-                .defaultTools(tools.toArray())
-                .build();
+                // 注册 POJO 工具到 ChatClient
+                .defaultTools(tools);
 
-        log.info("TravelApp 初始化完成，已注册 {} 个工具", tools.size());
+        // 如果有 MCP 工具，通过 defaultToolCallbacks 注册
+        if (mcpToolCallbackProvider != null) {
+            builder.defaultToolCallbacks(mcpToolCallbackProvider);
+            log.info("已接入 MCP 工具");
+        }
+
+        this.chatClient = builder.build();
+
+        log.info("TravelApp 初始化完成，已注册 {} 个工具", tools.length);
     }
 
     /**

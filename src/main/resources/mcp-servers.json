@@ -1,9 +1,15 @@
 {
   "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
-      "env": {}
+    "image-search": {
+      "command": "C:/Users/Administrator/.jdks/oracle_open_jdk-21/bin/java.exe",
+      "args": [
+        "-Dspring.profiles.active=stdio",
+        "-jar",
+        "D:/code/ai-travel-planner/mcp-servers/image-search/target/yu-image-search-mcp-server-0.0.1-SNAPSHOT.jar"
+      ],
+      "env": {
+        "PEXELS_API_KEY": "KWMwCZfaLCnh8ZgAd36DTeqGUIuW4GzV8D2lXIaXFHWPRMQGjIXuhoKG"
+      }
     }
   }
 }

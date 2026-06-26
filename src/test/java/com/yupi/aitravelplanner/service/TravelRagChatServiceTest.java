@@ -3,6 +3,7 @@ package com.yupi.aitravelplanner.service;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   - 兜底:用通用问题验证也能正常返回
  */
 @SpringBootTest
+@ActiveProfiles("test")
 class TravelRagChatServiceTest {
 
     @Autowired

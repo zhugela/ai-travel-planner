@@ -1,5 +1,6 @@
 package com.yupi.aitravelplanner.agent;
 
+import com.yupi.aitravelplanner.agent.context.StateContext;
 import com.yupi.aitravelplanner.agent.enums.AgentState;
 import lombok.Getter;
 import lombok.Setter;
@@ -35,31 +36,41 @@ public abstract class BaseAgent {
         if (this.getState() != AgentState.IDLE) {
             return "智能体正在执行任务，请勿重复调用";
         }
-        this.setState(AgentState.RUNNING);
 
-        // 存入用户消息
+        // 2. 存入用户消息
         org.springframework.ai.chat.messages.UserMessage userMsg =
             new org.springframework.ai.chat.messages.UserMessage(userInput);
         messageList.add(userMsg);
 
+        // 3. 死循环检测器（每任务新建）
+        LoopGuard guard = new LoopGuard();
         int currentStep = 0;
         StringBuilder allResult = new StringBuilder();
+        String loopReason = null;
 
-        while (getState() == AgentState.RUNNING && currentStep < maxSteps) {
-            currentStep++;
-            String singleResult = step();
-            // 补全步骤拼接
-            allResult.append("====第").append(currentStep).append("步====\n");
-            allResult.append(singleResult).append("\n");
-            // 如果子类把状态改成 FINISHED/ERROR，立刻跳出循环，不用跑完最大步数
-            if (getState() != AgentState.RUNNING) {
-                break;
+        // 4. 用 StateContext 自动管状态
+        try (StateContext ctx = StateContext.of(this, AgentState.RUNNING)) {
+            while (getState() == AgentState.RUNNING && currentStep < maxSteps) {
+                currentStep++;
+                String singleResult = step();
+                allResult.append("====第").append(currentStep).append("步====\n");
+                allResult.append(singleResult).append("\n");
+                if (getState() != AgentState.RUNNING) {
+                    break;
+                }
+                // 死循环检测
+                if (guard.isLooping()) {
+                    loopReason = "检测到死循环（重复工具或无进展），强制终止";
+                    setState(AgentState.ERROR);
+                    break;
+                }
             }
-        }
+            cleanup();
+        }   // close() 自动判断：RUNNING→IDLE，ERROR/FINISHED 保持
 
-        cleanup();
-        // 重置空闲
-        this.setState(AgentState.IDLE);
+        if (loopReason != null) {
+            allResult.append("\n[LoopGuard] ").append(loopReason);
+        }
         return allResult.toString();
     }
 

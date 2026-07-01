@@ -13,6 +13,6 @@ spring:
 server:
   port: 8127
 
-# ====== 第三方 API 密钥（占位符，等你申请后替换）======
+# ====== 第三方 API 密钥（占位符，请到 https://www.pexels.com/api/ 申请后替换）======
 pexels:
-  api-key: KWMwCZfaLCnh8ZgAd36DTeqGUIuW4GzV8D2lXIaXFHWPRMQGjIXuhoKG
+  api-key: ${PEXELS_API_KEY:REPLACE_WITH_YOUR_PEXELS_API_KEY}

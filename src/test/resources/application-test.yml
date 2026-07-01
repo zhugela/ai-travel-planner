@@ -1,0 +1,8 @@
+# Test profile:关闭 MCP客户端
+# 原因:MCP Client 自动拉 java 子进程,test 20秒内启不来 → 35/35 红
+# 修法:test 启动时不创建 MCP Client
+spring:
+  ai:
+    mcp:
+      client:
+        enabled: false

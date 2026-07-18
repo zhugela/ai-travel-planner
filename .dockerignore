@@ -1,0 +1,38 @@
+# ============================================================
+# .dockerignore - 后端打包时排除(Ch 09 §5.5)
+# ============================================================
+
+# 开发文件
+.git/
+.gitignore
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# 编译产物(避免嵌套 jar)
+target/
+build/
+*.jar
+*.war
+
+# 日志和测试
+logs/
+*.log
+test-output/
+coverage/
+.nyc_output/
+
+# 环境配置
+.env
+.env.local
+.env.*.local
+
+# 文档(非必需)
+README.md
+docs/
+
+# 系统文件
+.DS_Store
+Thumbs.db

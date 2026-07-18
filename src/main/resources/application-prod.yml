@@ -1,0 +1,64 @@
+# ============================================================
+# AI 旅游规划助手 - 生产环境配置(Ch 09 §5.4)
+# 启动方式: java -jar app.jar --spring.profiles.active=prod
+# 关键差异:
+#   - 关闭 MCP 远程客户端(生产环境没 MCP 服务器)
+#   - 关闭 Ollama 自动装配
+#   - 调整 SSE 超时
+#   - 关闭开发日志,改 INFO 级别
+# ============================================================
+
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+  # SSE 长连接超时(生产环境 10 分钟,适配 AI 长推理)
+  tomcat:
+    connection-timeout: 600s
+
+spring:
+  ai:
+    # 生产环境关闭 Ollama
+    ollama:
+      chat:
+        enabled: false
+    dashscope:
+      # 生产 Key 走环境变量(不提交代码)
+      api-key: ${DASHSCOPE_API_KEY}
+      chat:
+        options:
+          model: qwen-plus
+          # 生产环境用更稳定的参数
+          temperature: 0.7
+      embedding:
+        options:
+          model: text-embedding-v3
+    # MCP 远程客户端在生产环境关闭(没部署 MCP 服务器)
+    mcp:
+      client:
+        enabled: false
+
+# 关闭 Spring Boot Banner(可选)
+spring.main.banner-mode: off
+
+# 生产日志
+logging:
+  level:
+    root: INFO
+    com.yupi.aitravelplanner: INFO
+    org.springframework.ai: WARN
+  # 日志输出到文件 + 控制台
+  file:
+    name: logs/app.log
+    max-size: 100MB
+    max-history: 30
+
+# Knife4j 在线接口文档(生产建议关闭或限制)
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+# 搜索 API(可选,生产环境配真实 Key)
+search-api:
+  api-key: ${SEARCH_API_KEY:}

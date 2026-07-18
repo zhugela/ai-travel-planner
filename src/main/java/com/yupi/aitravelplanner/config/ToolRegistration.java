@@ -72,4 +72,13 @@ public class ToolRegistration {
     public WeatherTool weatherTool() {
         return new WeatherTool();
     }
+
+    /**
+     * 人机交互工具（Ch 08 §11.2）
+     * 智能体在缺少关键信息时调用此工具询问用户。
+     */
+    @Bean
+    public AskHumanTool askHumanTool() {
+        return new AskHumanTool();
+    }
 }

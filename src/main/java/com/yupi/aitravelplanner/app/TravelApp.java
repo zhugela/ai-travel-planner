@@ -17,6 +17,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.util.StringUtils;
+import reactor.core.publisher.Flux;
 
 import java.lang.reflect.Field;
 import java.time.LocalDate;
@@ -218,6 +219,22 @@ public class TravelApp {
 
     private String resolveConversationId(String conversationId) {
         return StringUtils.hasText(conversationId) ? conversationId : UUID.randomUUID().toString();
+    }
+
+    /**
+     * 流式多轮对话(Ch 09 §2.3 实现)。
+     * 返回 Flux<String> 而不是 ChatResponse,减少传输体积,便于前段逐字渲染打字机效果。
+     * 复用 doChat 的 advisor 链(记忆 + 日志),保证多轮上下文不丢。
+     */
+    public Flux<String> doChatByStream(String message, String conversationId) {
+        String chatId = resolveConversationId(conversationId);
+
+        return chatClient.prompt()
+                .system(renderSystemPrompt(extractUserName(message)))
+                .user(message)
+                .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, chatId))
+                .stream()
+                .content();
     }
 
     public record ChatResult(String conversationId, String reply) {

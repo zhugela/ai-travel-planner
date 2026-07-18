@@ -9,34 +9,32 @@ server:
   servlet:
     context-path: /api
 
-# 应用服务名（统一改为 ai-travel-planner）
 spring:
-  application:
-    name: ai-travel-planner
-
-  # Spring AI 通义千问 DashScope 配置
   ai:
+    # ========== 新增下面三行，关闭Ollama自动装配 ==========
+    ollama:
+      chat:
+        enabled: false
+    # ==================================================
     dashscope:
-      # 密钥从IDE/系统环境变量读取，禁止明文写死
       api-key: ${DASHSCOPE_API_KEY}
-      # 对话大模型
       chat:
         options:
           model: qwen-plus
-      # RAG向量化Embedding模型
       embedding:
         options:
           model: text-embedding-v3
-    # MCP 客户端配置（SSE 远程模式）
+    # MCP 客户端已禁用:本地 8127 端口的 image-search MCP 服务当前未启动,
+    # 会导致 SseHttpClientTransport 创建时连不上 loopback 而启动失败
     mcp:
       client:
-        sse:
-          connections:
-            image-search:
-              url: http://localhost:8127
-        # Stdio 本地模式（启动子进程，需要先打包 MCP 服务端 jar）
-        # stdio:
-        #   servers-configuration: classpath:mcp-servers.json
+        enabled: false
+#    mcp:
+#      client:
+#        sse:
+#          connections:
+#            image-search:
+#              url: http://localhost:8127
 
 # Knife4j 在线接口文档
 springdoc:

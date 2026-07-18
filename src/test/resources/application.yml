@@ -2,10 +2,14 @@ spring:
   ai:
     dashscope:
       api-key: sk-fd72ad761b584036ad29872e454f4af0
+    ollama:
+      chat:
+        enabled: false
     mcp:
       client:
         enabled: false
-        spring:
-          ai:
-            dashscope:
-              api-key=sk-b64b231c9caf448cb757a4e1234b3e05:
+# 下面这段删掉，mcp 内部不能嵌套 spring ai 配置
+#        spring:
+#          ai:
+#            dashscope:
+#              api-key=sk-b64b231c9caf448cb757a4e1234b3e05:

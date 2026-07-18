@@ -12,10 +12,15 @@ import com.yupi.aitravelplanner.model.dto.TravelReportResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
 /**
  * AI 接口（对应课程 AiController）
@@ -60,5 +65,40 @@ public class AiController {
                 result.report().title(),
                 result.report().suggestions());
         return ResultUtils.success(response);
+    }
+
+    /**
+     * 旅行问答 SSE 流式接口(Ch 09 §2.3 实现)。
+     * 返回 Flux<String>,前段 EventSource 监听逐字渲染打字机效果。
+     */
+    @GetMapping(value = "/chat/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "旅行规划问答(SSE 流式,逐字返回)")
+    public Flux<String> doChatWithSSE(@RequestParam String message,
+                                      @RequestParam(required = false) String chatId) {
+        return travelApp.doChatByStream(message, chatId);
+    }
+
+    /**
+     * 旅行问答 SseEmitter 备用接口(老式 Servlet 栈兼容)。
+     * 与 /chat/sse 二选一使用,效果一致。
+     */
+    @GetMapping(value = "/chat/sse/emitter", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "旅行规划问答(SseEmitter 备用,Servlet 异步)")
+    public SseEmitter doChatWithSseEmitter(@RequestParam String message,
+                                          @RequestParam(required = false) String chatId) {
+        SseEmitter emitter = new SseEmitter(180_000L);
+        travelApp.doChatByStream(message, chatId)
+                .subscribe(
+                        chunk -> {
+                            try {
+                                emitter.send(chunk);
+                            } catch (java.io.IOException ignored) {
+                                // 客户端断网时常见异常,静默忽略即可
+                            }
+                        },
+                        err -> emitter.completeWithError(err),
+                        () -> emitter.complete()
+                );
+        return emitter;
     }
 }

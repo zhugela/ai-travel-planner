@@ -41,9 +41,10 @@ public class ToolCallAgent extends ReActAgent {
         fullMessages.add(systemMessage);
         fullMessages.addAll(historyMsgList);
 
-        // 4. 构造 Prompt
+        // 4. 构造 Prompt(必须把 toolCallbacks 传给 ChatOptions,否则模型看不到工具)
         ChatOptions options = DefaultToolCallingChatOptions.builder()
                 .internalToolExecutionEnabled(false)
+                .toolCallbacks(this.toolCallbacks)
                 .build();
         Prompt prompt = Prompt.builder()
                 .messages(fullMessages)

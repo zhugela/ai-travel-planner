@@ -3,8 +3,8 @@
 # 云端构建:平台拉源码 + Maven 在线打包
 # ============================================================
 
-# 预装 Maven + JDK 21 的基础镜像
-FROM maven:3.9-amazoncorretto-21 AS builder
+# 预装 Maven + JDK 25 的基础镜像
+FROM maven:3.9-amazoncorretto-25 AS builder
 
 WORKDIR /app
 
@@ -17,8 +17,8 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # ============ 第二阶段:运行时镜像 ============
-# 轻量 JDK 21(只需要运行时)
-FROM eclipse-temurin:21-jre-alpine
+# 轻量 JDK 25(只需要运行时)
+FROM eclipse-temurin:25-jre-alpine
 
 WORKDIR /app
 

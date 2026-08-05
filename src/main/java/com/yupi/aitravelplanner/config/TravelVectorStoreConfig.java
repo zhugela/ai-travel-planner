@@ -9,6 +9,7 @@ import org.springframework.ai.vectorstore.VectorStore;       // 向量库通用�
 // Spring 标准注解
 import org.springframework.context.annotation.Bean;          // 标记 @Bean 方法,返回 Bean
 import org.springframework.context.annotation.Configuration; // 标记配置类
+import org.springframework.context.annotation.Profile;      // 条件激活:生产环境才加载
 
 // 步骤 2 写好的文档加载器(@Component,Spring 自动装配)
 import com.yupi.aitravelplanner.rag.TravelDocumentLoader;
@@ -27,6 +28,7 @@ import java.util.List;
  *      每次启动都会重新跑一遍 embedding(这就是本步骤的设计目的)
  */
 @Configuration
+@Profile("!test")  // 测试环境跳过(避免无 API Key 时 embedding 初始化报错)
 public class TravelVectorStoreConfig {
 
     /**

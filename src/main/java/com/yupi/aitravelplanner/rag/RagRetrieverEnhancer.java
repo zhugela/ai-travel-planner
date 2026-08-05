@@ -127,7 +127,7 @@ public class RagRetrieverEnhancer {
                 "的", "了", "是", "在", "和", "与", "或", "及", "我", "你", "他", "她",
                 "我们", "你们", "他们", "这", "那", "一个", "一些", "什么", "怎么", "如何",
                 "the", "a", "an", "is", "are", "was", "were", "in", "on", "at", "to",
-                "for", "of", "and", "or", "but", "is", "i", "you", "we", "they", "this", "that"
+                "for", "of", "and", "or", "but", "i", "you", "we", "they", "this", "that"
         );
 
         Set<String> tokens = new HashSet<>();

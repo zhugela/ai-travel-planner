@@ -2,6 +2,7 @@ package com.yupi.aitravelplanner.common;
 
 import com.yupi.aitravelplanner.exception.ErrorCode;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
@@ -11,6 +12,7 @@ import java.io.Serializable;
  * @param <T> 数据类型
  */
 @Data
+@NoArgsConstructor
 public class BaseResponse<T> implements Serializable {
 
     private int code;

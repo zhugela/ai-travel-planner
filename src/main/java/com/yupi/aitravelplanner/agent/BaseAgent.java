@@ -93,7 +93,7 @@ public abstract class BaseAgent {
         // 5 分钟超时,适配 Agent 多步推理最长时间
         SseEmitter emitter = new SseEmitter(300_000L);
 
-        // 1. 同步段:立刻把用户消息存进去(避免异步段看到空消息)
+        // 1. 同步段:忙碌拦截(与 run() 一致),非 IDLE 立刻发 error 并关闭
         if (this.getState() != AgentState.IDLE) {
             try {
                 emitter.send(SseEmitter.event()

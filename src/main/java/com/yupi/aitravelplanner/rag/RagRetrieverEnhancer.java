@@ -43,9 +43,10 @@ public class RagRetrieverEnhancer {
      * @return 排序后的文档(相关性更高的在前)
      */
     public List<Document> rerank(String query, List<Document> docs, int topK) {
+        // 入参校验(空值兜底)
         if (docs == null || docs.isEmpty()) return List.of();
         if (query == null || query.isBlank()) return docs;
-
+        //对 query 分词
         Set<String> queryTokens = tokenize(query);
         if (queryTokens.isEmpty()) return docs;
 

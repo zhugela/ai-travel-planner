@@ -60,10 +60,15 @@ public class AiController {
                 ErrorCode.PARAMS_ERROR, "消息不能为空");
         TravelApp.TravelReportResult result = travelApp.doChatWithTravelReportAndId(
                 message, request.getConversationId());
+        TravelApp.TravelReport report = result.report();
         TravelReportResponse response = new TravelReportResponse(
                 result.conversationId(),
-                result.report().title(),
-                result.report().suggestions());
+                report.title(),
+                report.summary(),
+                report.days(),
+                report.budget(),
+                report.assumptions(),
+                report.tips());
         return ResultUtils.success(response);
     }
 

@@ -181,16 +181,17 @@ public class TravelApp {
     }
 
     /**
-     * 旅行规划结构化报告，返回会话 id 与报告
+     * 旅行规划结构化报告。
+     *
+     * 注意:这里不能复用 travel-system.st 的对话式 prompt —— 那份明确要求"信息不全时只能追问",
+     * 会让报告页把追问当成建议输出。报告场景改为独立 prompt,一次给出可落地的分天行程,
+     * 缺失信息用合理的默认值补齐并在 assumptions 里标注。
      */
     public TravelReportResult doChatWithTravelReportAndId(String message, String conversationId) {
         String chatId = resolveConversationId(conversationId);
 
-        String reportSystemPrompt = renderSystemPrompt(extractUserName(message))
-                + "每次对话后都要生成旅行规划结果，标题为「XX的旅行报告」形式，内容为行程与出行建议列表。";
-
         TravelReport report = chatClient.prompt()
-                .system(reportSystemPrompt)
+                .system(REPORT_SYSTEM_PROMPT + "\n当前日期：" + LocalDate.now())
                 .user(message)
                 .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, chatId))
                 .call()
@@ -200,6 +201,28 @@ public class TravelApp {
 
         return new TravelReportResult(chatId, report);
     }
+
+    /** 报告场景专用 prompt:直接产出行程,而不是反问用户 */
+    private static final String REPORT_SYSTEM_PROMPT = """
+            你是一位自由行行程规划师。用户会给出旅行需求,你要直接产出一份可执行的行程方案。
+
+            【硬性要求】
+            1. 不要反问用户,不要输出"还需要确认什么"之类的追问。用户给的信息不足以精确规划时,
+               自行采用合理的默认值(如默认 2 人、默认中等预算、默认公共交通),并在 assumptions 中标注。
+            2. days 必须覆盖用户要求的天数,不能少也不能多;若用户没写天数,按 3 天规划。
+            3. 每天的 morning/afternoon/evening 必须是具体安排(景点/交通/餐饮/住宿),不能写"自由活动""根据喜好选择"。
+            4. 每个安排后面用括号标注预估花费,如"(门票 75 元)""(人均 80 元)"。
+            5. budget 按交通/住宿/餐饮/门票四项拆分,总额要接近用户预算;若超出预算必须调低档次而不是无视预算。
+            6. tips 写 3-5 条真正的注意事项(预约、天气、交通时段、体力分配等),不要写客套话。
+
+            【字段说明】
+            - title:行程标题,如「成都 5 天慢节奏亲子游」
+            - summary:一句话概述,说明行程主线与适配人群
+            - days:每天的安排,day 从 1 开始递增
+            - budget:预算拆分,含 total 与备注
+            - assumptions:你为缺失信息补的默认值,没有则给空数组
+            - tips:注意事项列表
+            """;
 
     private String renderSystemPrompt(String userName) {
         return systemPromptTemplate.createMessage(Map.of(
@@ -241,9 +264,37 @@ public class TravelApp {
     }
 
     /**
-     * 旅行规划报告（结构化 JSON 输出）
+     * 旅行报告(结构化 JSON 输出)
      */
-    public record TravelReport(String title, List<String> suggestions) {
+    public record TravelReport(
+            String title,
+            String summary,
+            List<DayPlan> days,
+            Budget budget,
+            List<String> assumptions,
+            List<String> tips
+    ) {
+    }
+
+    /** 单日行程 */
+    public record DayPlan(
+            int day,
+            String theme,
+            String morning,
+            String afternoon,
+            String evening
+    ) {
+    }
+
+    /** 预算拆分(单位:元) */
+    public record Budget(
+            double total,
+            double transport,
+            double hotel,
+            double food,
+            double tickets,
+            String note
+    ) {
     }
 
     public record TravelReportResult(String conversationId, TravelReport report) {

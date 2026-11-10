@@ -1,15 +1,11 @@
 spring:
   ai:
     dashscope:
-      api-key: sk-fd72ad761b584036ad29872e454f4af0
+      # 密钥不入库,从环境变量读取;未设置时为空串
+      api-key: ${DASHSCOPE_API_KEY:}
     ollama:
       chat:
         enabled: false
     mcp:
       client:
         enabled: false
-# 下面这段删掉，mcp 内部不能嵌套 spring ai 配置
-#        spring:
-#          ai:
-#            dashscope:
-#              api-key=sk-b64b231c9caf448cb757a4e1234b3e05:

@@ -40,9 +40,10 @@ class TravelAppTest {
         TravelApp.TravelReport report = travelApp.doChatWithTravelReport(message, chatId);
         assertNotNull(report);
         assertNotNull(report.title());
-        assertNotNull(report.suggestions());
+        assertNotNull(report.days());
         System.out.println("报告标题: " + report.title());
-        System.out.println("建议列表: " + report.suggestions());
+        System.out.println("天数: " + report.days().size());
+        System.out.println("预算: " + report.budget());
     }
 
     /**

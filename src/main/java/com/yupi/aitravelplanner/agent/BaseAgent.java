@@ -141,6 +141,11 @@ public abstract class BaseAgent {
                 }
                 setState(AgentState.ERROR);
             } finally {
+                // 必须显式发 done:EventSource 收到连接关闭会自动重连,前端靠 done 帧主动 close 才不重复请求
+                try {
+                    emitter.send(SseEmitter.event().name("done").data("finished"));
+                } catch (Exception ignored) {
+                }
                 try {
                     emitter.complete();
                 } catch (Exception ignored) {

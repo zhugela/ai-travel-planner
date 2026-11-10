@@ -29,8 +29,18 @@ public class YuTravelAgent extends ToolCallAgent {
                 2. 数据齐全后调用TerminateTool输出完整行程；
                 3. 未收集完全信息不能直接输出最终方案；
                 4. 同一工具调用一次即可，不要重复调用（已拿到结果就基于结果回答）；
-                5. 信息足够时立即调用TerminateTool结束任务，不要无意义思考。
+                5. 信息足够时立即调用TerminateTool结束任务，不要无意义思考；
+                6. 若现有工具不能满足用户需求（如查机票价格、订酒店），直接说明缺少该能力并建议用户手动查询，
+                   禁止调用无关工具拼凑步骤来假装完成任务；
+                7. 用户要求的能力在你拿到的工具列表里不存在时，不要尝试替代方案，直接说明。
                 """;
+    }
+
+    /** 运行时追加能力说明(由 Controller 注入当前不可用的能力) */
+    public void appendSystemPrompt(String extra) {
+        if (extra != null && !extra.isBlank()) {
+            super.systemPrompt = super.systemPrompt + extra;
+        }
     }
 
     // 禁止新增自定义call/executeStep，统一使用父类入口 run(String userInput)

@@ -17,7 +17,10 @@ public abstract class ReActAgent extends BaseAgent {
             // 固定流程：先思考
             boolean needRunTool = think();
             if (!needRunTool) {
-                return "思考完成，无需调用工具";
+                // 模型不再调用工具 = 已给出最终回答,不能再空转到 maxSteps
+                setState(AgentState.FINISHED);
+                String finalText = (this instanceof ToolCallAgent tca) ? tca.getLastText() : "";
+                return finalText.isBlank() ? "思考完成，无需调用工具" : finalText;
             }
             // 需要工具则执行act
             return act();

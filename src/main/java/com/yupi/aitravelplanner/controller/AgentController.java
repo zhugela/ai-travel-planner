@@ -5,6 +5,7 @@ import com.yupi.aitravelplanner.tools.DownloadTool;
 import com.yupi.aitravelplanner.tools.FileOperationTool;
 import com.yupi.aitravelplanner.tools.PdfGenerationTool;
 import com.yupi.aitravelplanner.tools.TerminalTool;
+import com.yupi.aitravelplanner.tools.TerminateTool;
 import com.yupi.aitravelplanner.tools.WeatherTool;
 import com.yupi.aitravelplanner.tools.WebScrapingTool;
 import com.yupi.aitravelplanner.tools.WebSearchTool;
@@ -57,6 +58,7 @@ public class AgentController {
     @Resource private DownloadTool downloadTool;
     @Resource private PdfGenerationTool pdfGenerationTool;
     @Resource private WeatherTool weatherTool;
+    @Resource private TerminateTool terminateTool;
 
     public AgentController(ChatModel chatModel,
                            @Autowired(required = false) SyncMcpToolCallbackProvider mcpToolCallbackProvider) {
@@ -70,21 +72,59 @@ public class AgentController {
     @Operation(summary = "旅行规划智能体(SSE 流式)")
     public SseEmitter doAgentStream(@RequestParam String message) {
         YuTravelAgent agent = new YuTravelAgent(chatModel, buildToolCallbacks());
+        agent.appendSystemPrompt(buildCapabilityNote());
         return agent.runStream(message);
     }
 
     /**
-     * 把 7 个 Spring Bean 工具的 @Tool 方法 + 远程 MCP 工具合并成 List<ToolCallback>。
+     * 能力门控:不可用的工具不注册给模型。
+     * 否则模型会先调一次撞「密钥未配置」,再调 getStatus 确认,白烧两轮推理,
+     * 最终输出还会变成中英混杂的道歉。
+     */
+    private List<Object> availableLocalTools() {
+        List<Object> tools = new ArrayList<>();
+        tools.add(fileOperationTool);
+        tools.add(webScrapingTool);
+        tools.add(terminalTool);
+        tools.add(downloadTool);
+        tools.add(pdfGenerationTool);
+        tools.add(weatherTool);
+        tools.add(terminateTool);
+
+        WebSearchTool.Health search = webSearchTool.health();
+        if (search.available()) {
+            tools.add(webSearchTool);
+        } else {
+            log.warn("[AgentController] 跳过联网搜索工具: {}", search.reason());
+        }
+        return tools;
+    }
+
+    /** 把当前可用能力写进 system prompt,让模型知道边界,不必试探 */
+    private String buildCapabilityNote() {
+        List<String> unavailable = new ArrayList<>();
+        WebSearchTool.Health search = webSearchTool.health();
+        if (!search.available()) {
+            unavailable.add("联网搜索(未配置 SEARCH_API_KEY)");
+        }
+        if (unavailable.isEmpty()) {
+            return "";
+        }
+        return "\n【当前不可用的能力】\n"
+                + String.join("\n", unavailable)
+                + "\n以上能力未启用,用户要求这类任务时直接说明无法完成,建议用户手动查询。"
+                + "禁止用其他工具拼凑步骤来假装完成。";
+    }
+
+    /**
+     * 把可用工具 Bean 的 @Tool 方法 + 远程 MCP 工具合并成 List<ToolCallback>。
      * Spring AI 1.0.0 没公开 ToolCallbacks.from(),这里手写反射版。
      */
     private List<ToolCallback> buildToolCallbacks() {
         List<ToolCallback> result = new ArrayList<>();
 
-        // 1. 本地 POJO 工具(7 个 @Tool)
-        Object[] tools = {
-                fileOperationTool, webSearchTool, webScrapingTool,
-                terminalTool, downloadTool, pdfGenerationTool, weatherTool
-        };
+        // 1. 本地 POJO 工具(已按可用性门控过滤;含 finishTask,否则模型无法结束任务)
+        List<Object> tools = availableLocalTools();
         for (Object tool : tools) {
             for (Method method : tool.getClass().getMethods()) {
                 Tool toolAnno = method.getAnnotation(Tool.class);

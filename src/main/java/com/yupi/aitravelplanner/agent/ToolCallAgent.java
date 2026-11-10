@@ -4,6 +4,7 @@ import com.yupi.aitravelplanner.agent.enums.AgentState;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.ChatOptions;
@@ -58,8 +59,12 @@ public class ToolCallAgent extends ReActAgent {
         // 6. 获取AI返回消息
         AssistantMessage assistantOutput = response.getResult().getOutput();
 
-        // 7. 把AI消息存入历史
-        getMessageList().add(new AssistantMessage(assistantOutput.getText()));
+        // 7. 把 AI 消息存入历史(必须带 toolCalls,否则下一轮模型看不到"已调用过什么",
+        //    会反复调同一个工具直到 maxSteps)
+        getMessageList().add(new AssistantMessage(
+                assistantOutput.getText() == null ? "" : assistantOutput.getText(),
+                assistantOutput.getMetadata(),
+                assistantOutput.getToolCalls()));
 
         // 8. 判断是否需要工具
         boolean needTool = assistantOutput.getToolCalls() != null
@@ -71,11 +76,21 @@ public class ToolCallAgent extends ReActAgent {
         return needTool;
     }
 
+    /** 最近一次 think 的模型文本回答(无工具调用时作为最终答案) */
+    public String getLastText() {
+        if (toolCallChatResponse == null) return "";
+        String text = toolCallChatResponse.getResult().getOutput().getText();
+        return text == null ? "" : text;
+    }
+
     @Override
     public String act() {
         StringBuilder result = new StringBuilder();
 
         AssistantMessage assistantMsg = toolCallChatResponse.getResult().getOutput();
+
+        // 工具结果必须以 ToolResponseMessage 回填历史,模型才能基于结果继续作答
+        List<ToolResponseMessage.ToolResponse> toolResponses = new ArrayList<>();
 
         assistantMsg.getToolCalls().forEach(toolCall -> {
             String toolName = toolCall.name();
@@ -87,10 +102,14 @@ public class ToolCallAgent extends ReActAgent {
             String toolResult = executeTool(toolName, args);
             result.append("【工具执行】").append(toolName).append(" => ").append(toolResult).append("\n");
 
+            toolResponses.add(new ToolResponseMessage.ToolResponse(toolCall.id(), toolName, toolResult));
+
             if ("finishTask".equals(toolName)) {
                 setState(AgentState.FINISHED);
             }
         });
+
+        getMessageList().add(new ToolResponseMessage(toolResponses));
 
         return result.toString();
     }

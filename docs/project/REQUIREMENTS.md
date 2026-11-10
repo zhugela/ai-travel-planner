@@ -1,6 +1,6 @@
 # REQUIREMENTS.md — AI 旅行规划助手需求梳理
 
-> **需求来源**:仅整理 `docs/学习笔记-NN-XXX.md` (Ch 02~Ch 09) 里已实现 / 已设计的功能。
+> **需求来源**:仅整理 `docs/notes/学习笔记-NN-XXX.md` (Ch 02~Ch 09) 里已实现 / 已设计的功能。
 > **更新规则**:任何新增需求必须改这份文件 + 对应章节笔记。
 
 ---
@@ -106,10 +106,11 @@
 | 内存向量库 | SimpleVectorStore | ✅ | TravelVectorStoreConfig |
 | Markdown 文档加载 | spring-ai-markdown-document-reader | ✅ | TravelDocumentLoader |
 | 查询扩展 | MultiQueryExpanderDemo | ✅ | demo/rag/ |
-| RAG Chat Service | QuestionAnswerAdvisor | ✅ | TravelRagChatService |
-| RAG Controller | 云知识库接入 | ✅ | TravelRagController |
-| 云知识库 Advisor | 百炼云知识库 | ✅ | TravelRagCloudAdvisorConfig |
-| 知识库文档 | 3 份 markdown | ✅ | travel-domestic-low/mid/overseas.md |
+| RAG Chat Service | QuestionAnswerAdvisor(本地向量检索) | ✅ | TravelRagChatService |
+| RAG Controller | 本地知识库接入 | ✅ | TravelRagController |
+| 云知识库 Advisor | 百炼云知识库 | ⏸️ 条件启用 | TravelRagCloudAdvisorConfig(账户欠费,暂关) |
+| 本地 Embedding | bge-small-zh-v1.5 ONNX | ✅ | LocalEmbeddingConfig |
+| 知识库文档 | 3 份 markdown(18 切片) | ✅ | travel-domestic-low/mid/overseas.md |
 
 ### Ch 05 · RAG 进阶与调优
 
@@ -168,7 +169,7 @@
 | 普通同步聊天 | POST /api/travel/chat | ✅ | AiController.chat |
 | 结构化报告 | POST /api/travel/report | ✅ | AiController.report |
 | RAG 对话 | POST /api/travel/rag-chat | ✅ | TravelRagController |
-| Agent SSE | GET /api/agent/sse | ⚠️ | 代码就绪,运行时 404(classpath 缓存) |
+| Agent SSE | GET /api/agent/sse | ✅ | 已实测,结束推送 done 帧 |
 | CORS 配置 | allowedOriginPatterns | ✅ | CorsConfig |
 | application-prod.yml | 生产配置 | ✅ | 资源文件 |
 | Dockerfile | 后端容器化 | ✅ | Dockerfile |
@@ -208,7 +209,7 @@
 |---|---|---|
 | **P0** | Ch 02~08 主功能跑通 | ✅ 已完成 |
 | **P0** | SSE 流式打字机工作 | ✅ 已验证 |
-| **P1** | Agent SSE 步骤日志 | ⚠️ classpath 缓存 |
+| **P1** | Agent SSE 步骤日志 | ✅ 已验证 |
 | **P1** | Dockerfile 可构建 | ✅ 已写 |
 | **P2** | 真实部署 | ❌ 跳过 |
 | **P2** | 多模态图片 | ❌ 跳过 |

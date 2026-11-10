@@ -15,7 +15,8 @@
 | T-03 | RAG 知识库问答 | Ch 04 | ✅ 已完成 | — |
 | T-04 | 工具调用(7 个 @Tool + 安全) | Ch 06 | ✅ 已完成 | — |
 | T-05 | AI 智能体 4 层架构 | Ch 08 | ✅ 已完成 | — |
-| T-06 | SSE 流式接口 | Ch 09 | ⚠️ 部分(AgentController 404) | — |
+| T-06 | SSE 流式接口 | Ch 09 | ✅ 已完成 | — |
+| T-06b | 模型切换到 DeepSeek + 本地 embedding | Ch 02/04 | ✅ 已完成 | — |
 | T-07 | **TDD 测试覆盖 + 自动化** | Ch 02~09 | ❌ **当前任务** | 8h |
 | T-08 | **联调 + Docker 部署验证** | Ch 09 | ❌ **当前任务** | 4h |
 
@@ -126,7 +127,7 @@
 
 ---
 
-## T-06 · SSE 流式接口 ⚠️
+## T-06 · SSE 流式接口 ✅
 
 **目标**:把 AI 能力封装成可流式调用的 HTTP 接口
 
@@ -136,13 +137,41 @@
 - [x] 普通聊天 SSE(`AiController.doChatWithSSE`)
 - [x] SseEmitter 备用(`AiController.doChatWithSseEmitter`)
 - [x] Agent 流式入口(`BaseAgent.runStream()`)
-- [x] AgentController(代码就绪,**运行时 404 需修**)
+- [x] AgentController 端点运行时验证通过(curl 返回 `event:step` 帧)
 - [x] CORS 配置(CorsConfig)
 - [x] TravelApp 流式方法(`doChatByStream`)
 
-**剩余问题**:
-- [ ] AgentController 在 IDEA Run 下需要 Rebuild 后生效
-- [ ] AgentController 注册后需 curl 验证 `/api/agent/sse`
+**已修问题**:
+- [x] AgentController 运行时 404(重启后已消除)
+- [x] SSE 结束未推 `done`,浏览器 EventSource 自动重连导致智能体重复执行 —— `BaseAgent.runStream()` finally 中补发 `event:done`
+- [x] 前端收到连接关闭未 `close()`,重复请求 —— `frontend/src/api/index.js` 统一处理 done / 连接关闭
+
+---
+
+## T-06b · 模型切换到 DeepSeek + 本地 embedding ✅
+
+**背景**:百炼账户欠费,chat / embedding 全部返回 `Arrearage`,演示无法进行。
+
+**实现**:
+- [x] `pom.xml` 增加 `spring-ai-starter-model-openai`(OpenAI 兼容协议) + `spring-ai-transformers`
+- [x] `application.yml`:`spring.ai.model.chat=openai`,`base-url=https://api.deepseek.com`,`model=deepseek-chat`
+- [x] `AiTravelPlannerApplication` 排除 `DashScopeChatAutoConfiguration` / `DashScopeEmbeddingAutoConfiguration`(否则 DashScope Bean 抢占注入)
+- [x] `LocalEmbeddingConfig`:手动创建 `TransformersEmbeddingModel`(Spring AI 1.0.0 正式版移除了 transformers 自动装配,仅 M6 有)
+- [x] 模型文件:`~/.cache/bge-small-zh/{model.onnx,tokenizer.json}`(Xenova/bge-small-zh-v1.5,95MB)
+- [x] `TravelRagChatService`:云知识库 Advisor → 本地 `SimpleVectorStore` + `QuestionAnswerAdvisor`,检索无命中时直接返回兜底
+- [x] `TravelRagCloudAdvisorConfig` / `TravelVectorStoreConfig`(云版)改条件启用,百炼恢复后可切回
+
+**顺带修复的 Agent Bug**:
+- [x] `ToolCallAgent.think()` 存历史时丢了 `toolCalls` → 模型反复调同一工具直到 maxSteps
+- [x] `ToolCallAgent.act()` 未回填 `ToolResponseMessage` → 模型看不到工具结果
+- [x] `AgentController` 未注册 `TerminateTool` → 模型无法结束任务
+- [x] `ReActAgent.step()` 无工具调用时不置 FINISHED → 空转到 maxSteps
+
+**验证结果**:
+- 问答 SSE ✅(DeepSeek 逐字流式)
+- 结构化报告 ✅
+- Agent SSE ✅(2 步结束 + `event:done`)
+- RAG 命中 ✅(`18 documents`,引用本地攻略)/ 未命中兜底 ✅
 
 ---
 
@@ -240,8 +269,7 @@ T-01 → T-02 → T-03 → T-04 → T-05 → T-06 ─┬─→ T-07 ─┐
 ```
 
 **当前状态**:
-- T-01~T-06 已完成(笔记 + 代码)
-- T-06 残留问题:AgentController 运行时 404
+- T-01~T-06 已完成(笔记 + 代码),T-06 已实测端点通
 - T-07 / T-08 待开始
 
 ---
@@ -253,6 +281,7 @@ T-01 → T-02 → T-03 → T-04 → T-05 → T-06 ─┬─→ T-07 ─┐
 | 2026-07-17 | T-06 | 完成 BaseAgent.runStream + AgentController 代码 |
 | 2026-07-18 | T-06 | 发现 AgentController 运行时 404(classpath 缓存) |
 | 2026-07-18 | T-07 | **开始**:5 项补全(Re-ranking/MCP/AskHuman/Dockerfile/AskHuman) |
+| 2026-11-09 | T-06 | **完成**:补 `done` 帧修 EventSource 重连;前端问答/智能体页端到端验证,单次请求 + 按钮复位 |
 | TBD | T-08 | 等 T-07 完成 |
 
 ---

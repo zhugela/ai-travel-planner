@@ -70,8 +70,8 @@ ai-travel-planner/
 ### 阶段 1: 读 CLAUDE.md + docs/
 Claude Code **每次会话开头**必须读:
 1. 本文件 (`CLAUDE.md`)
-2. `docs/REQUIREMENTS.md`(需求范围)
-3. `docs/TASKS.md`(任务拆解,选当前 task)
+2. `docs/project/REQUIREMENTS.md`(需求范围)
+3. `docs/project/TASKS.md`(任务拆解,选当前 task)
 
 ### 阶段 2: 调研模式(只读)
 调研现状时**禁止修改**任何代码 / 文档,只能:
@@ -235,11 +235,11 @@ Claude Code **每次会话开头**必须读:
 ## 十一、文档同步约束(每次 PR 必检)
 
 代码改动后**必须**检查:
-- [ ] `docs/REQUIREMENTS.md` 功能清单状态
-- [ ] `docs/SCHEMA.md` 实体字段(如有新增)
-- [ ] `docs/TASKS.md` 任务勾选 [x]
-- [ ] `docs/TEST_CASES.md` 新增/更新用例
-- [ ] `docs/学习笔记-NN-XXX.md`(如有重要设计决策)
+- [ ] `docs/project/REQUIREMENTS.md` 功能清单状态
+- [ ] `docs/project/SCHEMA.md` 实体字段(如有新增)
+- [ ] `docs/project/TASKS.md` 任务勾选 [x]
+- [ ] `docs/project/TEST_CASES.md` 新增/更新用例
+- [ ] `docs/notes/学习笔记-NN-XXX.md`(如有重要设计决策)
 
 ---
 

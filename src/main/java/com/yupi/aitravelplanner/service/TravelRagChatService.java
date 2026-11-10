@@ -1,33 +1,25 @@
 package com.yupi.aitravelplanner.service;
 
-// Spring AI - ChatModel:对话模型接口(由 spring-ai-alibaba-starter-dashscope 自动注入)
-import org.springframework.ai.chat.model.ChatModel;
-
-// Spring AI - ChatClient:高层 API,Fluent 风格,本类自己构造
 import org.springframework.ai.chat.client.ChatClient;
-
-// Spring AI - Advisor 接口(替代之前的 VectorStore + QuestionAnswerAdvisor)
 import org.springframework.ai.chat.client.advisor.api.Advisor;
-
-// Spring - 资源加载(读 prompts/travel-rag-system.st)
-import org.springframework.core.io.ClassPathResource;
-
-// Spring - 服务注解
+import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 
-// Lombok - 自动生成 log 字段
 import lombok.extern.slf4j.Slf4j;
 
-// JDK - IO
+import org.springframework.core.io.ClassPathResource;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 /**
- * 旅游规划 RAG 问答服务(云知识库版)
+ * 旅游规划 RAG 问答服务(本地知识库版)。
  *
- * 数据源:百炼云知识库"旅游规划"(由 TravelRagCloudAdvisorConfig 注册)
- * 流程:用户提问 → 云检索 → context 拼入 Prompt → 调通义千问 → 返回回答
- * 兜底:模型回答为空时返回固定话术(云检索不到内容时仍会调模型)
+ * 数据源:resources/document/*.md → SimpleVectorStore(本地 ONNX embedding)
+ * 流程:用户提问 → 向量检索 top-K → 拼接 context → DeepSeek 生成回答
  */
 @Slf4j
 @Service
@@ -36,106 +28,83 @@ public class TravelRagChatService {
     /** 知识库无匹配时的兜底回复 */
     public static final String NO_MATCH_REPLY = "暂无相关旅游攻略信息";
 
-    /** RAG 专用 System Prompt 文件位置 */
     private static final String SYSTEM_PROMPT_PATH = "prompts/travel-rag-system.st";
-
-    /** 目的地推荐专用 System Prompt 文件位置(临时覆盖 defaultSystem) */
     private static final String RECOMMEND_SYSTEM_PROMPT_PATH = "prompts/destination-recommend-system.st";
 
-    /** ChatClient(本类自己构造,见构造器) */
+    /** 检索条数 */
+    private static final int TOP_K = 4;
+    /** 相似度阈值,低于此值视为未命中。
+     *  bge-small-zh 对泛化提问(如"杭州有什么好玩的")打分偏低,0.45 会误杀,取 0.35。 */
+    private static final double SIMILARITY_THRESHOLD = 0.35;
+
     private final ChatClient chatClient;
+    private final VectorStore vectorStore;
+    private final Advisor localRagAdvisor;
 
-    /** 云知识库 Advisor(由 TravelRagCloudAdvisorConfig 注册) */
-    private final Advisor travelRagCloudAdvisor;
-
-    /**
-     * 构造注入 ChatModel + 云 Advisor
-     * Spring 自动装配:
-     *   - ChatModel:阿里 starter 自动创建的 DashScope ChatModel
-     *   - travelRagCloudAdvisor:TravelRagCloudAdvisorConfig 里的 @Bean 方法返回的 Advisor
-     */
-    public TravelRagChatService(
-            ChatModel dashscopeChatModel,
-            Advisor travelRagCloudAdvisor) {
-        this.travelRagCloudAdvisor = travelRagCloudAdvisor;
-
-        // 读 system prompt 模板(用 UTF-8 编码)
-        String systemPrompt = readSystemPrompt();
-
-        // 构造 ChatClient:挂载云 Advisor
-        // 云 Advisor(RetrievalAugmentationAdvisor)内部自动:
-        //   1) 可选:用 chatModel 重写 query
-        //   2) 调 DashScopeDocumentRetriever.retrieve(query) 检索云知识库
-        //   3) 把命中片段拼成 context 塞进 user 消息
-        //   4) 调 ChatModel 生成回答
-        this.chatClient = ChatClient.builder(dashscopeChatModel)
-                .defaultSystem(systemPrompt)
-                .defaultAdvisors(travelRagCloudAdvisor)
+    public TravelRagChatService(ChatModel chatModel, VectorStore travelVectorStore) {
+        this.vectorStore = travelVectorStore;
+        // 本地向量检索 Advisor:命中片段自动注入 prompt 的 question_answer_context
+        this.localRagAdvisor = QuestionAnswerAdvisor.builder(travelVectorStore)
+                .searchRequest(SearchRequest.builder()
+                        .topK(TOP_K)
+                        .similarityThreshold(SIMILARITY_THRESHOLD)
+                        .build())
+                .build();
+        this.chatClient = ChatClient.builder(chatModel)
+                .defaultSystem(readSystemPrompt())
                 .build();
     }
 
     /**
-     * RAG 对话统一入口
-     * @param userMessage 用户提问
-     * @return AI 基于云知识库的回答,或兜底话术
+     * RAG 对话统一入口。
+     *
+     * 与 LLM 生成前先做一次检索判空:没有命中就不调模型,直接返回兜底,
+     * 避免"知识库里没有,模型却自由发挥"——这是本项目 RAG 的验收要求。
      */
     public String chatWithRag(String userMessage) {
-        log.info("========== RAG 请求开始(云知识库) ==========");
+        log.info("========== RAG 请求开始(本地知识库) ==========");
         log.info("[1] 用户提问: {}", userMessage);
 
-        // 调用 ChatClient,云 Advisor 在内部完成检索 + context 注入 + 调模型
-        String answer = chatClient.prompt()
-                .user(userMessage)
-                .advisors(travelRagCloudAdvisor)
-                .call()
-                .content();
-
-        // 兜底:模型回答为空(异常/检索不到)→ 返回固定话术
-        // 云 advisor 没有"0 命中就强制兜底"的硬逻辑,
-        // 模型即使检索不到也会给通用回答,所以这里只看 answer 是否为空
-        if (answer == null || answer.isBlank()) {
-            log.warn("[2] 模型回答为空,触发兜底");
-            log.info("========== RAG 请求结束(兜底) ==========");
+        if (vectorStore.similaritySearch(SearchRequest.builder()
+                .query(userMessage)
+                .topK(TOP_K)
+                .similarityThreshold(SIMILARITY_THRESHOLD)
+                .build()).isEmpty()) {
+            log.info("[2] 知识库无命中,返回兜底");
             return NO_MATCH_REPLY;
         }
 
-        // 打印模型输出
-        log.info("[2] 模型回答: {}", answer);
-        log.info("========== RAG 请求结束(命中) ==========");
+        String answer = chatClient.prompt()
+                .user(userMessage)
+                .advisors(localRagAdvisor)
+                .call()
+                .content();
 
+        if (answer == null || answer.isBlank()) {
+            log.warn("[3] 模型回答为空,触发兜底");
+            return NO_MATCH_REPLY;
+        }
+
+        log.info("[3] 模型回答: {}", answer);
         return answer;
     }
 
     /**
-     * 目的地推荐(MVP)
-     * 复用云 advisor + 临时换 prompt → 模型按规则列 3~5 个目的地
-     * @param userNeed 用户需求,如"3 天短途带老人"
-     * @return 纯文本目的地列表,每行一个 "- 【城市】:理由"
+     * 目的地推荐(MVP):复用同一套本地检索,临时换 system prompt 输出列表格式。
      */
     public String recommendDestinations(String userNeed) {
         log.info("========== 目的地推荐开始 ==========");
-        log.info("[需求] {}", userNeed);
 
-        String recommendPrompt = readRecommendPrompt();
-
-        // 复用 cloud advisor 检索"旅游规划"知识库,但临时换 system prompt
-        // 让模型按"列表格式"输出,而不是普通问答
         String result = chatClient.prompt()
-                .system(recommendPrompt)
+                .system(readRecommendPrompt())
                 .user(userNeed)
-                .advisors(travelRagCloudAdvisor)
+                .advisors(localRagAdvisor)
                 .call()
                 .content();
-
-        log.info("[推荐结果]\n{}", result);
-        log.info("========== 目的地推荐结束 ==========");
 
         return result == null || result.isBlank() ? "暂无合适的旅游目的地推荐" : result;
     }
 
-    /**
-     * 读 resources/prompts/destination-recommend-system.st 的内容作为推荐 prompt
-     */
     private String readRecommendPrompt() {
         try {
             ClassPathResource resource = new ClassPathResource(RECOMMEND_SYSTEM_PROMPT_PATH);
@@ -146,18 +115,13 @@ public class TravelRagChatService {
         }
     }
 
-    /**
-     * 读 resources/prompts/travel-rag-system.st 的内容作为 system prompt
-     * 用 UTF-8 读 .st 模板文件
-     */
     private String readSystemPrompt() {
         try {
             ClassPathResource resource = new ClassPathResource(SYSTEM_PROMPT_PATH);
             return new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            // 读不到 prompt 文件 → 退化为简单提示,不影响主流程
             log.error("读取 RAG System Prompt 失败: {}", SYSTEM_PROMPT_PATH, e);
-            return "你是一位旅游规划助手,请根据用户问题给出准确、友好的回答。";
+            return "你是一位旅游规划助手,请根据提供的资料回答用户问题,资料没有的内容不要编造。";
         }
     }
 }

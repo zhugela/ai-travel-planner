@@ -30,6 +30,22 @@ public class WebSearchTool {
             "https://serpapi.com/search?q={query}&api_key={apiKey}&engine=baidu";
 
     /**
+     * 该能力的健康检查结果。
+     * Agent 注册工具前先问这个,不可用就**不注册**——
+     * 否则模型会先调一次撞「密钥未配置」,再调 getStatus 确认,白烧两轮推理。
+     */
+    public record Health(boolean available, String reason) {
+    }
+
+    /** Agent 注册工具前的门控检查 */
+    public Health health() {
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            return new Health(false, "未配置 SEARCH_API_KEY 环境变量");
+        }
+        return new Health(true, "已配置");
+    }
+
+    /**
      * 联网搜索实时信息
      *
      * @param query 搜索关键词，如 "北京今日天气"

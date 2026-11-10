@@ -7,6 +7,8 @@ docs/
 ├── README.md          ← 本索引
 ├── project/           ← 项目定义:需求 / 任务 / 数据模型 / 测试
 ├── guides/            ← 写代码时的规范:prompt / 验收 / 接口 / Agent
+├── knowledge/         ← 可跨项目复用的规范 / 清单 / 模板
+├── adr/               ← 重要架构决策及其取舍
 ├── notes/             ← 课程学习笔记(原文,需求来源)
 └── prompts/           ← Prompt 模板 + 前端生成 prompt
 ```
@@ -17,7 +19,8 @@ docs/
 
 | 文档 | 什么时候读 |
 |---|---|
-| [../CLAUDE.md](../CLAUDE.md) | 每次会话开始(行为规范) |
+| [../CLAUDE.md](../CLAUDE.md) / [../AGENTS.md](../AGENTS.md) | 工具读取入口(内容以 CONVENTIONS.md 为准) |
+| [project/CONVENTIONS.md](./project/CONVENTIONS.md) | **项目约定总纲**。技术栈、协作流程、编码规范、环境启动 |
 | [project/REQUIREMENTS.md](./project/REQUIREMENTS.md) | 确认需求范围 |
 | [project/TASKS.md](./project/TASKS.md) | 选当前任务 |
 
@@ -30,6 +33,9 @@ docs/
 | [guides/PROMPT_GUIDELINES.md](./guides/PROMPT_GUIDELINES.md) | **改任何 prompt / 新增 AI 功能**。7 问自检 + 冲突检测 + 能力门控 |
 | [guides/AGENT_DESIGN.md](./guides/AGENT_DESIGN.md) | **改 agent/ 包**。四层链路 + 5 个必修坑 |
 | [guides/API_CONTRACT.md](./guides/API_CONTRACT.md) | **改接口 / 前后端对接**。端点契约 + SSE 陷阱 |
+| [guides/CODE_WIKI.md](./guides/CODE_WIKI.md) | 全项目代码导读(437 行) |
+| [guides/FRONTEND_SPEC.md](./guides/FRONTEND_SPEC.md) | 前端开发规范(Vue3 + Element Plus) |
+| [guides/TESTING_SPEC.md](./guides/TESTING_SPEC.md) | 后端测试规范与流程 |
 | [project/SCHEMA.md](./project/SCHEMA.md) | 改数据模型(当前无 DB,仅设计参考) |
 
 ---
@@ -43,7 +49,26 @@ docs/
 
 ---
 
-## 四、课程笔记(notes/)
+## 四、跨项目复用(knowledge/ + adr/)
+
+| 入口 | 用途 |
+|---|---|
+| [knowledge/README.md](./knowledge/README.md) | 按安全、RAG、Agent、工程化、模板查找可复用成果 |
+| [knowledge/log.md](./knowledge/log.md) | 记录每次沉淀了什么、来源是什么 |
+| [adr/README.md](./adr/README.md) | 查看重要架构决策、适用条件和回退方案 |
+
+维护边界:
+- `guides/`:本项目当前怎么实现,允许包含具体类名和端点。
+- `knowledge/`:换一个项目仍然成立的原则、清单和模板。
+- `adr/`:为什么选择某个方案,以及何时应该换方案。
+- `notes/`:课程原始学习材料,不作为当前实现的唯一事实来源。
+
+> `docs/` 是开发知识库,不会自动进入运行时 RAG。旅行问答真正加载的是
+> `src/main/resources/document/*.md`。
+
+---
+
+## 五、课程笔记(notes/)
 
 `学习笔记-02` ~ `学习笔记-09`,按章节记录课程内容。**这是需求来源,不是实现规范。**
 
@@ -63,7 +88,7 @@ docs/
 
 ---
 
-## 五、Prompt 模板(prompts/)
+## 六、Prompt 模板(prompts/)
 
 | 文件 | 用途 |
 |---|---|
@@ -75,7 +100,7 @@ docs/
 
 ---
 
-## 六、本项目已修的 13 个缺陷(经验库)
+## 七、本项目已修的 13 个缺陷(经验库)
 
 | 类别 | 数量 | 典型 |
 |---|---|---|

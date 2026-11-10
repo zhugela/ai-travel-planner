@@ -1,6 +1,9 @@
 # AGENTS.md — AI 旅行规划助手项目约束
 
 > 这是 Codex 在本仓库工作时的全局行为规范。所有会话开始前先读这份文件。
+>
+> ⚠️ **技术栈信息可能过时**,以 [`docs/project/CONVENTIONS.md`](docs/project/CONVENTIONS.md) 为准
+> (该文件合并了本文件与 CLAUDE.md,并保持更新)。
 
 ---
 

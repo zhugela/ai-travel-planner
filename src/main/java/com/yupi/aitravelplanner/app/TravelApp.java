@@ -119,16 +119,11 @@ public class TravelApp {
     }
 
     /**
-     * 注入搜索 API 密钥到 WebSearchTool
+     * 工具已通过 @Value 自行注入 search-api.api-key,这里无需再反射赋值。
+     * (旧实现由 TravelApp 反射写 WebSearchTool.apiKey,会与 @Value 抢时序)
      */
     private void injectSearchApiKey() {
-        try {
-            Field field = WebSearchTool.class.getDeclaredField("apiKey");
-            ReflectionUtils.makeAccessible(field);
-            ReflectionUtils.setField(field, webSearchTool, searchApiKey);
-        } catch (Exception e) {
-            log.warn("注入 searchApiKey 失败: {}", e.getMessage());
-        }
+        // 保留方法占位,避免改动构造器调用链;实际注入由 @Value 完成
     }
 
     /**

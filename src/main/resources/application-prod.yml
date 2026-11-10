@@ -61,4 +61,5 @@ knife4j:
 
 # 搜索 API(可选,生产环境配真实 Key)
 search-api:
+  provider: ${SEARCH_API_PROVIDER:bocha}
   api-key: ${SEARCH_API_KEY:}

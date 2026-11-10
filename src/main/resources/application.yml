@@ -73,7 +73,10 @@ knife4j:
     language: zh_cn
 
 # 搜索 API 配置（SerpAPI）
+# 搜索 API 配置
+# provider: bocha(博查,国内直连,推荐) | serpapi(备用)
 search-api:
+  provider: ${SEARCH_API_PROVIDER:bocha}
   api-key: ${SEARCH_API_KEY:}
 
 # 日志打印配置

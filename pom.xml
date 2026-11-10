@@ -67,10 +67,20 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <!-- Spring AI Alibaba -->
+        <!-- Spring AI Alibaba(保留:Ch 02 SDK Demo / LangChain4j 对比仍用其 SDK) -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
             <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+        </dependency>
+        <!-- Spring AI OpenAI 兼容协议:用于接 DeepSeek(chat + tool calling + stream) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+        </dependency>
+        <!-- 本地 ONNX embedding(DeepSeek 无 embedding 接口,离线跑 bge-small-zh) -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-transformers</artifactId>
         </dependency>
         <!-- RAG - 内存向量库 SimpleVectorStore（Spring AI 1.0.0 core artifact） -->
         <dependency>

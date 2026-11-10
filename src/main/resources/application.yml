@@ -1,6 +1,6 @@
 # ============================================================
 # AI 旅游规划助手 ai-travel-planner - 基础配置
-# Spring AI 1.0.0 正式版 + DashScope 通义千问
+# Chat: DeepSeek(OpenAI 兼容协议) | Embedding: 本地 ONNX
 # ============================================================
 
 # 服务端口与统一接口前缀
@@ -11,17 +11,41 @@ server:
 
 spring:
   ai:
-    # ========== 新增下面三行，关闭Ollama自动装配 ==========
+    # 只启用 openai(DeepSeek 兼容)这一个 chat 模型,避免多 ChatModel Bean 冲突
+    # embedding 由 LocalEmbeddingConfig 手动创建 Bean(1.0.0 无 transformers 自动装配)
+    model:
+      chat: openai
+    # ========== DeepSeek(OpenAI 兼容) ==========
+    openai:
+      api-key: ${DEEPSEEK_API_KEY:${SCENECHOICE_DEEPSEEK_API_KEY:}}
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-chat
+          temperature: 0.7
+    # ========== 本地 ONNX Embedding(免 key,离线;文件预先放在 ~/.cache/bge-small-zh) ==========
+    embedding:
+      transformer:
+        onnx:
+          modelUri: file:${user.home}/.cache/bge-small-zh/model.onnx
+          modelOutputName: last_hidden_state
+        tokenizer:
+          uri: file:${user.home}/.cache/bge-small-zh/tokenizer.json
+    # ========== 本地 Ollama 保留但不自动装配 ==========
     ollama:
       chat:
         enabled: false
-    # ==================================================
+      embedding:
+        enabled: false
+    # ========== 百炼保留配置但不自动装配(账户欠费,切回时改 enabled=true) ==========
     dashscope:
-      api-key: ${DASHSCOPE_API_KEY}
+      api-key: ${DASHSCOPE_API_KEY:}
       chat:
+        enabled: false
         options:
           model: qwen-plus
       embedding:
+        enabled: false
         options:
           model: text-embedding-v3
     # MCP 客户端已禁用:本地 8127 端口的 image-search MCP 服务当前未启动,

@@ -16,6 +16,7 @@ import org.springframework.ai.chat.client.advisor.api.Advisor;
 
 // Spring - 配置 + 依赖注入
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -34,8 +35,11 @@ import lombok.extern.slf4j.Slf4j;
  *   - 本类是云端数据源
  *   - 本地类 SimpleVectorStore + 3 份 md 保留代码但暂不参与检索
  *   - 想切换数据源,改 Service 注入的 Advisor 即可
+ *
+ * 条件启用:百炼账户欠费期间默认关闭,配 dashscope.embedding.enabled=true 才生效。
  */
 @Configuration
+@ConditionalOnProperty(name = "spring.ai.dashscope.embedding.enabled", havingValue = "true")
 @Slf4j
 public class TravelRagCloudAdvisorConfig {
 

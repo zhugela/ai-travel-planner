@@ -39,3 +39,22 @@ tmp/chat-memory/
 tmp/file/
 tmp/download/
 tmp/pdf/
+
+### 本地密钥 / 运行日志(禁提交) ###
+.env.local.ps1
+.env
+tmp/*.log
+
+### 运行时产物:会话缓存、工具输出、本地日志,全部不入库 ###
+/tmp/
+
+### Claude Code / Playwright 临时产物 ###
+.claude/settings.local.json
+.claude/launch.json
+.playwright-mcp/
+
+### 个人资料(不入库) ###
+*.pdf
+
+### 旧存根前端(真正的前端在 D:\code2\ai-travel-planner-frontend) ###
+/frontend/

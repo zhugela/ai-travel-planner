@@ -30,6 +30,7 @@ docs/
 
 | 文档 | 适用场景 |
 |---|---|
+| [guides/HARNESS_OVERVIEW.md](./guides/HARNESS_OVERVIEW.md) | **先看这份**。harness 五个部件全景 + 换模型检查清单 |
 | [guides/PROMPT_GUIDELINES.md](./guides/PROMPT_GUIDELINES.md) | **改任何 prompt / 新增 AI 功能**。7 问自检 + 冲突检测 + 能力门控 |
 | [guides/AGENT_DESIGN.md](./guides/AGENT_DESIGN.md) | **改 agent/ 包**。四层链路 + 5 个必修坑 |
 | [guides/API_CONTRACT.md](./guides/API_CONTRACT.md) | **改接口 / 前后端对接**。端点契约 + SSE 陷阱 |

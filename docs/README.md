@@ -5,6 +5,12 @@
 ```
 docs/
 ├── README.md          ← 本索引
+├── design-docs/       ← 设计信念与设计文档索引
+├── exec-plans/        ← 活跃/已完成计划与技术债
+├── generated/         ← 从源码/设计生成的快照
+├── product-specs/     ← 用户行为和首次使用规格
+├── references/        ← 外部 LLM 参考材料
+├── sops/              ← 可逐步执行的工程流程
 ├── project/           ← 项目定义:需求 / 任务 / 数据模型 / 测试
 ├── guides/            ← 写代码时的规范:prompt / 验收 / 接口 / Agent
 ├── knowledge/         ← 可跨项目复用的规范 / 清单 / 模板
@@ -23,6 +29,25 @@ docs/
 | [project/CONVENTIONS.md](./project/CONVENTIONS.md) | **项目约定总纲**。技术栈、协作流程、编码规范、环境启动 |
 | [project/REQUIREMENTS.md](./project/REQUIREMENTS.md) | 确认需求范围 |
 | [project/TASKS.md](./project/TASKS.md) | 选当前任务 |
+| [../feature_list.json](../feature_list.json) | 当前功能状态、验证步骤与证据 |
+| [../claude-progress.md](../claude-progress.md) | 当前已验证状态、blocker 和下一步 |
+| [../ARCHITECTURE.md](../ARCHITECTURE.md) | 系统分层、数据流和信任边界 |
+
+## 一·五、工程骨架
+
+| 文档 | 用途 |
+|---|---|
+| [DESIGN.md](./DESIGN.md) | 产品与架构建模原则 |
+| [PLANS.md](./PLANS.md) | 计划、状态和执行计划生命周期 |
+| [PRODUCT_SENSE.md](./PRODUCT_SENSE.md) | 产品价值和优先级判断 |
+| [QUALITY_SCORE.md](./QUALITY_SCORE.md) | 质量评分标准 |
+| [RELIABILITY.md](./RELIABILITY.md) | 超时、SSE、故障恢复边界 |
+| [SECURITY.md](./SECURITY.md) | 信任边界、密钥和高风险工具 |
+| [FRONTEND.md](./FRONTEND.md) | Vue 前端边界与 SSE 验收 |
+| [design-docs/index.md](./design-docs/index.md) | 设计文档与 ADR 入口 |
+| [product-specs/index.md](./product-specs/index.md) | 产品规格入口 |
+| [exec-plans/tech-debt-tracker.md](./exec-plans/tech-debt-tracker.md) | 技术债与验收条件 |
+| [sops/index.md](./sops/index.md) | 分层架构、知识沉淀、可观测性和 UI 验证 SOP |
 
 ---
 

@@ -1,0 +1,14 @@
+# uv note for ai-travel-planner
+
+This repository does not use Python package management with uv.
+
+Backend runtime:
+- Java 21 source compatibility
+- Spring Boot 3.4.4
+- Maven Wrapper
+
+Standard verification:
+  .\mvnw.cmd test
+
+Python may be used only as an external local helper. Do not add Python runtime
+dependencies to the Spring Boot application without an ADR and explicit scope.

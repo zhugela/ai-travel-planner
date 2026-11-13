@@ -1,0 +1,177 @@
+{
+  "project": "ai-travel-planner",
+  "updated": "2026-11-12",
+  "status_values": ["not_started", "in_progress", "blocked", "passing"],
+  "features": [
+    {
+      "id": "F-001",
+      "priority": 0,
+      "area": "quality",
+      "title": "恢复可重复的测试基线",
+      "user_visible_behavior": "开发者能从干净状态运行标准测试，并获得可信的通过/失败结果。",
+      "dependencies": [],
+      "status": "in_progress",
+      "verification": [
+        "运行 .\\mvnw.cmd -q -DskipTests compile",
+        "运行 .\\mvnw.cmd test",
+        "记录 passed / failed / skipped 数量及失败类名",
+        "将结果写入 claude-progress.md 和 docs/project/TEST_CASES.md"
+      ],
+      "evidence": "2026-11-12 运行 .\\mvnw.cmd test：100 tests run, 0 failures, 45 errors, 0 skipped；首个根因是测试上下文缺少 OpenAI 兼容 ChatModel 的占位 API key。",
+      "notes": "45 个 errors 集中在 @SpringBootTest 上下文启动阶段；不是当前功能通过证据。修复后必须用同一命令重跑。"
+    },
+    {
+      "id": "F-002",
+      "priority": 1,
+      "area": "chat",
+      "title": "旅行问答 SSE 流式输出",
+      "user_visible_behavior": "用户在聊天页发送问题后看到逐块输出，结束后按钮复位且请求不重复。",
+      "dependencies": [],
+      "status": "passing",
+      "verification": [
+        "启动后端并确认 8123 端口可用",
+        "请求 GET /api/travel/chat/sse?message=你好&chatId=manual-check",
+        "确认 Content-Type 为 text/event-stream 且收到多个 data 帧",
+        "在浏览器确认流结束后 EventSource 已关闭"
+      ],
+      "evidence": "docs/project/TASKS.md 记录 2026-11-09 已完成普通聊天 SSE 端到端流式输出与前端按钮复位验证。",
+      "notes": "完成证据来自人工端到端验证；自动化 SSE 回归仍需纳入 F-001 基线。"
+    },
+    {
+      "id": "F-003",
+      "priority": 2,
+      "area": "report",
+      "title": "结构化旅行报告",
+      "user_visible_behavior": "用户提交旅行需求后收到包含逐日安排、预算、假设和提示的结构化报告。",
+      "dependencies": [],
+      "status": "passing",
+      "verification": [
+        "POST /api/travel/report，提交包含目的地、天数、同行人和预算的需求",
+        "确认 days 连续且每日包含 morning / afternoon / evening",
+        "确认 budget 四项之和接近 total",
+        "确认信息不完整时 assumptions 非空"
+      ],
+      "evidence": "docs/project/TASKS.md 的 T-06b 记录结构化报告已通过；docs/guides/API_CONTRACT.md 记录 2026-11-10 新字段契约。",
+      "notes": "docs/project/REQUIREMENTS.md 中仍残留旧 suggestions 字段描述，需要后续文档清理。"
+    },
+    {
+      "id": "F-004",
+      "priority": 3,
+      "area": "rag",
+      "title": "本地知识库 RAG 问答",
+      "user_visible_behavior": "知识库有答案时返回基于攻略的回复，无命中时明确显示兜底信息。",
+      "dependencies": [],
+      "status": "passing",
+      "verification": [
+        "POST /api/travel/rag-chat，提交知识库内问题",
+        "确认 matched=true 且 answer 非空",
+        "提交知识库外问题",
+        "确认 matched=false 且 answer 使用固定兜底文案"
+      ],
+      "evidence": "docs/project/TASKS.md 的 T-06b 记录 RAG 命中与未命中兜底均已验证；ADR-001 记录本地 Embedding 方案。",
+      "notes": "命中片段会发送给 DeepSeek，不能宣称全链路离线；检索可观测性仍未补齐。"
+    },
+    {
+      "id": "F-005",
+      "priority": 4,
+      "area": "agent",
+      "title": "Agent 多步 SSE 与结束协议",
+      "user_visible_behavior": "用户发起复杂旅行任务后看到步骤流，任务成功或失败都以明确事件结束。",
+      "dependencies": [],
+      "status": "passing",
+      "verification": [
+        "GET /api/agent/sse?message=查杭州天气",
+        "确认响应为 text/event-stream",
+        "确认收到 step 帧、loop/error 分支和最终 done 帧",
+        "确认客户端收到 done 后关闭连接"
+      ],
+      "evidence": "docs/project/TASKS.md 记录 2026-11-09 Agent SSE 端到端 2 步结束并收到 event:done；BaseAgent 的 finally 明确发送 done。",
+      "notes": "agent 输出中的 tool 信息当前嵌在 step 文本；接口契约以 docs/guides/API_CONTRACT.md 为准。"
+    },
+    {
+      "id": "F-006",
+      "priority": 5,
+      "area": "security",
+      "title": "高风险工具与文件路径治理",
+      "user_visible_behavior": "Agent 只能访问授权目录和授权能力，越界文件路径、内网地址和 shell 绕过被拒绝。",
+      "dependencies": ["F-001"],
+      "status": "blocked",
+      "verification": [
+        "为文件工具增加统一安全路径解析器",
+        "测试 ../、绝对路径、混合分隔符和符号链接越界",
+        "终端工具默认不注册或改为结构化专用工具",
+        "网络工具拒绝 loopback、私网、元数据地址和恶意重定向"
+      ],
+      "evidence": "",
+      "notes": "阻塞原因见 ADR-002 与 docs/SECURITY.md：FileOperationTool 尚未统一路径校验，TerminalTool 仍通过 shell 解释整段命令。"
+    },
+    {
+      "id": "F-007",
+      "priority": 6,
+      "area": "frontend",
+      "title": "后端与 Vue 前端完整联调",
+      "user_visible_behavior": "用户能在浏览器完成问答、报告、RAG 和 Agent 四条主流程，控制台无阻断错误。",
+      "dependencies": ["F-001", "F-002", "F-003", "F-004", "F-005"],
+      "status": "not_started",
+      "verification": [
+        "启动后端 8123 与前端 3000",
+        "按 docs/guides/ACCEPTANCE_CHECKLIST.md 完成四层验收",
+        "检查 Console、Network、空态、错误态和 375px 布局",
+        "确认组件卸载时所有 EventSource 已 close"
+      ],
+      "evidence": "",
+      "notes": "前端代码不在当前仓库；当前仓库只保存联调契约和验收标准。"
+    },
+    {
+      "id": "F-008",
+      "priority": 7,
+      "area": "delivery",
+      "title": "Docker 构建与启动冒烟",
+      "user_visible_behavior": "维护者能构建后端镜像并访问健康接口或文档端点。",
+      "dependencies": ["F-001"],
+      "status": "not_started",
+      "verification": [
+        "运行 .\\mvnw.cmd -q -DskipTests package",
+        "运行 docker build -t ai-travel-planner:local .",
+        "启动容器并确认 8123 端口可访问",
+        "记录镜像构建与启动日志"
+      ],
+      "evidence": "",
+      "notes": "Dockerfile 已存在，但当前没有已验证的镜像构建和启动证据。"
+    },
+    {
+      "id": "F-009",
+      "priority": 8,
+      "area": "mcp",
+      "title": "图片搜索 MCP 联调",
+      "user_visible_behavior": "多模态图片识别作为可选能力启用后能被 Agent 调用，默认配置下不会阻塞启动。",
+      "dependencies": ["F-001", "F-005"],
+      "status": "blocked",
+      "verification": [
+        "启动 8127 端口 MCP server",
+        "在测试配置中启用 MCP client",
+        "确认 Agent 工具列表包含图片搜索工具",
+        "执行一次图片搜索并记录响应"
+      ],
+      "evidence": "",
+      "notes": "当前 application.yml 明确禁用 MCP client，避免 8127 未启动时阻塞应用。"
+    },
+    {
+      "id": "F-010",
+      "priority": 9,
+      "area": "security",
+      "title": "API 鉴权、限流与生产安全基线",
+      "user_visible_behavior": "生产环境中匿名请求不能消耗模型额度或访问其他用户会话。",
+      "dependencies": ["F-006", "F-007"],
+      "status": "not_started",
+      "verification": [
+        "业务 API 未认证时返回 401",
+        "限制每用户并发 SSE、请求频率和模型额度",
+        "校验 conversationId 属于当前用户",
+        "生产关闭匿名接口文档和 DEBUG 日志"
+      ],
+      "evidence": "",
+      "notes": "当前为单人学习项目，未引入登录；上线前必须完成。"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+# Nixpacks note for ai-travel-planner
+
+This repository does not use Nixpacks.
+
+Current deployment path:
+1. Build with Maven Wrapper.
+2. Package the Spring Boot application.
+3. Use the repository Dockerfile.
+4. Run on port 8123.
+
+Canonical commands:
+  .\mvnw.cmd -q -DskipTests package
+  docker build -t ai-travel-planner:local .
+
+Deployment is not yet verified. Do not claim a successful image or container run
+until the evidence is recorded in feature_list.json and claude-progress.md.

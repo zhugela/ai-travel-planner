@@ -47,6 +47,7 @@ tmp/*.log
 
 ### 运行时产物:会话缓存、工具输出、本地日志,全部不入库 ###
 /tmp/
+askhuman-pending.md
 
 ### Claude Code / Playwright 临时产物 ###
 .claude/settings.local.json

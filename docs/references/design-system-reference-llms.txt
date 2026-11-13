@@ -1,0 +1,23 @@
+# Design system references for this repository
+
+Stack:
+- Vue 3 Composition API
+- Vite
+- Element Plus
+- JavaScript only; TypeScript is prohibited
+
+Repository rules:
+- Read ../FRONTEND.md and ../guides/FRONTEND_SPEC.md before UI changes.
+- Use Element Plus for standard controls.
+- Keep API requests in src/api/.
+- Validate loading, empty, error and disconnected states.
+- Verify with browser Console, Network and 375px viewport.
+
+Official references:
+- Vue 3: https://vuejs.org/guide/
+- Vite: https://vite.dev/guide/
+- Element Plus: https://element-plus.org/
+- WCAG 2.2: https://www.w3.org/TR/WCAG22/
+
+Do not copy generic SaaS dashboards. This product is task-oriented:
+question -> itinerary -> evidence -> next action.

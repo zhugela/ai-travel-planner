@@ -333,6 +333,37 @@ mvn verify -Pintegration
 | TC-AGENT-01~03 | Agent 4 层 | ❌ |
 | **合计 21 个** | | **0/21 完成** |
 
+### 自动化执行快照（2026-11-12）
+
+执行命令：`.\mvnw.cmd test`
+
+| 指标 | 结果 |
+|---|---|
+| Tests run | 100 |
+| Failures | 0 |
+| Errors | 45 |
+| Skipped | 0 |
+| Java | 22.0.2 |
+| Maven | 3.9.11 |
+
+首个根因：
+
+```text
+OpenAI API key must be set. Use the connection property:
+spring.ai.openai.api-key or spring.ai.openai.chat.api-key property.
+```
+
+45 个 errors 集中在需要加载 Spring 上下文的测试类。测试环境当前只为
+DashScope 提供了占位 Key，没有为已切换的 OpenAI 兼容 ChatModel 提供占位或
+Mock 配置，因此上下文在 `openAiChatModel` Bean 创建阶段失败。
+
+这次执行说明：
+
+- 纯单元测试可运行，例如 `LoopGuardTest`、`StateContextTest`、
+  `RagRetrieverEnhancerTest`。
+- Controller、Service、Tool 和启动测试中的 Spring 上下文测试当前不可重复。
+- 在该问题修复前，不能把“测试已补齐”或“功能全部通过”当作当前事实。
+
 ---
 
 ## 十、变更记录
